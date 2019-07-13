@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 struct node {
-    struct node *next;
-    struct node *prev;
+    struct node* next;
+    struct node* prev;
     int data;
 };
 
@@ -16,20 +16,20 @@ struct node* alloc_node(int data) {
 }
 
 struct list {
-    struct node *head;
-    struct node *tail;
+    struct node* head;
+    struct node* tail;
     int length;
 };
 
 struct list* alloc_list() {
-    struct list *result = (struct list*) malloc(sizeof(struct list));
+    struct list* result = (struct list*) malloc(sizeof(struct list));
     result->head = NULL;
     result->tail = NULL;
     result->length = 0;
     return result;
 }
 
-void free_list(struct list *list) {
+void free_list(struct list* list) {
     struct node* current = list->head;
     while(current != NULL) {
         struct node* tmp = current;
