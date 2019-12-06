@@ -1,0 +1,22 @@
+# Challenges
+
+## Scanning
+
+  [X] Add C-style block comments (including newlines). Try and make them
+      nesting.
+
+## Representing Code
+
+  [X] Define a visitor for expressions that takes an expression, converts it to
+      RPN, and returns the resulting string.
+
+## Parsing Expressions
+
+  [X] Add the comma operator. It sequences a series of expressions, evaluates
+      them in order, and discards all results but that last.
+
+  [ ] Add a ternary operator `?:`. What is the precedence, is the whole operator
+      left- or right-associative?
+
+  [ ] Add error productions for binary operators without left-hand operators.
+     
