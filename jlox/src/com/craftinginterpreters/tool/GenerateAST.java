@@ -35,6 +35,7 @@ public class GenerateAST {
         defineVisitor(writer, baseName, types);
         writer.println();
         writer.println("  abstract <R> R accept(Visitor<R> visitor);");
+        writer.println();
 
         for (String type : types) {
             String className = type.split(":")[0].trim();
