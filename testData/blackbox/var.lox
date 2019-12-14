@@ -1,0 +1,3 @@
+var o = "O";
+var k = "K";
+print o + k;

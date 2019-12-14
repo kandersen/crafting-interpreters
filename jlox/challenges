@@ -20,3 +20,21 @@
 
   [ ] Add error productions for binary operators without left-hand operators.
      
+## Interpreting Expressions
+
+  [x] Extend the interpreter to support that if either operand to `+` is a
+  string, the other is converted to a string and the results are concatenated.
+  
+  [X] Extend the implementation to report a runtime error for division by zero.
+
+## Statements and State
+
+  [ ] Add the ability to enter both statements or expressions in the REPL.
+  Execute one, evaluate the other.
+
+  [ ] Make it a runtime error to access variables that have not been
+  initialized.
+
+## Control Flow
+
+  [ ] Add `break` statements.
