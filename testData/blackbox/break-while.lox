@@ -1,0 +1,7 @@
+
+while(true) {
+  while(true) break;
+  print "O";
+  break;
+}
+print "K";

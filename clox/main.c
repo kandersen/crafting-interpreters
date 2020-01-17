@@ -95,7 +95,7 @@ int list_index(int i, struct list* list) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
     printf("Hello, World!\n");
     struct list* l = alloc_list();
     push(4, l);
@@ -112,5 +112,8 @@ int main() {
 
     free_list(l);
 
+
+
+    printf("%i\n", 5 / atoi(argv[1]));
     return 0;
 }
