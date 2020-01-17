@@ -20,3 +20,4 @@ xcuserdata/
 
 # I store a Python venv here, but
 /util/env/
+.DS_Store
