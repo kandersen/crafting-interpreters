@@ -27,6 +27,11 @@ public class RPNPrinter implements Expr.Visitor<String> {
     }
 
     @Override
+    public String visitLambdaExpr(Expr.Lambda expr) {
+        return null;
+    }
+
+    @Override
     public String visitLiteralExpr(Expr.Literal expr) {
         return expr.value.toString();
     }

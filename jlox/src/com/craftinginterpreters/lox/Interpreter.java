@@ -120,6 +120,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Object visitLambdaExpr(Expr.Lambda expr) {
+        Stmt.Function declaration = new Stmt.Function(new Token(TokenType.IDENTIFIER, "<function>", null, 0), expr.params, expr.body);
+        return new LoxFunction(declaration, environment);
+    }
+
+    @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
     }

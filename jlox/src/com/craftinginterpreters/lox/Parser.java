@@ -39,6 +39,11 @@ class Parser {
     }
 
     private Stmt function(String kind) {
+        if (!check(IDENTIFIER)) {
+            Stmt expr = new Stmt.Expression(lambda());
+            consume(SEMICOLON, "Expect ';' after statement expression");
+            return expr;
+        }
         Token name = consume(IDENTIFIER, "Expect " + kind + " name." );
         consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
         List<Token> parameters = new ArrayList<>();
@@ -362,7 +367,31 @@ class Parser {
             return new Expr.Grouping(expr);
         }
 
+        if (match(FUN)) {
+            return lambda();
+        }
+
         throw error(peek(), "Expect expression.");
+    }
+
+    private Expr lambda() {
+        consume(LEFT_PAREN, "Expect '(' after lambda keyword.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= 255) {
+                    error(peek(), "Cannot have more than 255 parameters.");
+                }
+
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            } while (match(COMMA));
+        }
+        consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+        consume(LEFT_BRACE, "Expect '{' before lambda body.");
+        List<Stmt> body = block();
+
+        return new Expr.Lambda(parameters, body);
     }
 
     private Token consume(TokenType type, String message) {
