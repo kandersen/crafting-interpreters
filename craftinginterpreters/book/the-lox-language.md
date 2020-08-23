@@ -1,6 +1,3 @@
-^title The Lox Language
-^part Welcome
-
 > What nicer thing can you do for somebody than make them breakfast?
 >
 > <cite>Anthony Bourdain</cite>
@@ -85,7 +82,7 @@ C-syntax languages do. As we'll learn later, Lox's approach to scoping hews
 closely to Scheme. The C flavor of Lox we'll build in [Part III][] is heavily
 indebted to Lua's clean, efficient implementation.
 
-[part iii]: a-bytecode-interpreter-in-c.html
+[part iii]: a-bytecode-virtual-machine.html
 
 <aside name="js">
 
@@ -185,9 +182,10 @@ data types. There are only a few:
 
     There are two Boolean values, obviously, and a literal for each one:
 
-        :::lox
-        true;  // Not false.
-        false; // Not *not* false.
+    ```lox
+    true;  // Not false.
+    false; // Not *not* false.
+    ```
 
 *   **Numbers –** Lox only has one kind of number: double-precision floating
     point. Since floating point numbers can also represent a wide range of
@@ -197,17 +195,19 @@ data types. There are only a few:
     scientific notation, octal, all sorts of fun stuff. We'll settle for basic
     integer and decimal literals:
 
-        :::lox
-        1234;  // An integer.
-        12.34; // A decimal number.
+    ```lox
+    1234;  // An integer.
+    12.34; // A decimal number.
+    ```
 
 *   **Strings –** We've already seen one string literal in the first example.
     Like most languages, they are enclosed in double quotes:
 
-        :::lox
-        "I am a string";
-        "";    // The empty string.
-        "123"; // This is a string, not a number.
+    ```lox
+    "I am a string";
+    "";    // The empty string.
+    "123"; // This is a string, not a number.
+    ```
 
     As we'll see when we get to implementing them, there is quite a lot of
     complexity hiding in that innocuous sequence of <span
@@ -393,7 +393,7 @@ You've seen a couple of kinds of statements already. The first one was:
 print "Hello, world!";
 ```
 
-A <span name="print">print statement</span> evaluates a single expression
+A <span name="print">`print` statement</span> evaluates a single expression
 and displays the result to the user. You've also seen some statements like:
 
 <aside name="print">
@@ -507,7 +507,7 @@ while (a < 10) {
 
 <aside name="do">
 
-I left `do-while` loops out of Lox because they aren't that common and wouldn't
+I left `do while` loops out of Lox because they aren't that common and wouldn't
 teach you anything that you won't already learn from `while`. Go ahead and add
 it to your implementation if it makes you happy. It's your party.
 
@@ -570,10 +570,10 @@ fun printSum(a, b) {
 }
 ```
 
-Now's a good time to clarify some terminology. Some people throw around
-"parameter" and "argument" like they are interchangeable and, to many, they are.
-We're going to spend a lot of time splitting the finest of downy hairs around
-semantics, so let's sharpen our words. From here on out:
+Now's a good time to clarify some <span name="define">terminology</span>. Some
+people throw around "parameter" and "argument" like they are interchangeable
+and, to many, they are. We're going to spend a lot of time splitting the finest
+of downy hairs around semantics, so let's sharpen our words. From here on out:
 
 *   An **argument** is an actual value you pass to a function when you call it.
     So a function *call* has an *argument* list. Sometimes you hear **"actual
@@ -582,6 +582,19 @@ semantics, so let's sharpen our words. From here on out:
 *   A **parameter** is a variable that holds the value of the argument inside
     the body of the function. Thus, a function *declaration* has a *parameter*
     list. Others call these **"formal parameters"** or simply **"formals"**.
+
+<aside name="define">
+
+Speaking of terminology, some statically-typed languages like C make a
+distinction between *declaring* a function and *defining* it. The declaration
+binds the function's type to its name so calls can be type-checked but does not
+provide a body. The definition also fills in the body of the function so that it
+can be compiled.
+
+Since Lox is dynamically typed, this distinction isn't meaningful. A function
+declaration fully specifies the function including its body.
+
+</aside>
 
 The body of a function is always a block. Inside it, you can return a value
 using a `return` statement:
@@ -781,15 +794,15 @@ classes right in.
 
 <aside name="waterbed">
 
-Larry Wall, Perl's inventor/prophet calls this the "[waterbed
-theory][]". Some complexity is essential and cannot be eliminated. If you push
-it down in one place it swells up in another.
+Larry Wall, Perl's inventor/prophet calls this the "[waterbed theory][]". Some
+complexity is essential and cannot be eliminated. If you push it down in one
+place it swells up in another.
+
+[waterbed theory]: http://wiki.c2.com/?WaterbedTheory
 
 Prototypal languages don't so much *eliminate* the complexity of classes as they
 do make the *user* take that complexity by building their own class-like
 metaprogramming libraries.
-
-[waterbed theory]: http://wiki.c2.com/?WaterbedTheory
 
 </aside>
 
@@ -899,7 +912,7 @@ When you declare a class, you can specify a class that it inherits from using
 ```lox
 class Brunch < Breakfast {
   drink() {
-    print "How about a Blood Mary?";
+    print "How about a Bloody Mary?";
   }
 }
 ```

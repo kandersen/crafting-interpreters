@@ -1,7 +1,6 @@
 //> Chunks of Bytecode memory-c
 #include <stdlib.h>
 
-#include "common.h"
 //> Garbage Collection memory-include-compiler
 #include "compiler.h"
 //< Garbage Collection memory-include-compiler
@@ -21,7 +20,7 @@
 #define GC_HEAP_GROW_FACTOR 2
 //< Garbage Collection heap-grow-factor
 
-void* reallocate(void* previous, size_t oldSize, size_t newSize) {
+void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 //> Garbage Collection updated-bytes-allocated
   vm.bytesAllocated += newSize - oldSize;
 
@@ -41,11 +40,15 @@ void* reallocate(void* previous, size_t oldSize, size_t newSize) {
 
 //< Garbage Collection call-collect
   if (newSize == 0) {
-    free(previous);
+    free(pointer);
     return NULL;
   }
 
-  return realloc(previous, newSize);
+  void* result = realloc(pointer, newSize);
+//> out-of-memory
+  if (result == NULL) exit(1);
+//< out-of-memory
+  return result;
 }
 //> Garbage Collection mark-object
 void markObject(Obj* object) {
@@ -99,26 +102,26 @@ static void blackenObject(Obj* object) {
 
 //< log-blacken-object
   switch (object->type) {
-//> Methods and Initializers not-yet
+//> Methods and Initializers blacken-bound-method
     case OBJ_BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
       markValue(bound->receiver);
       markObject((Obj*)bound->method);
       break;
     }
-//< Methods and Initializers not-yet
-//> Classes and Instances not-yet
-
+    
+//< Methods and Initializers blacken-bound-method
+//> Classes and Instances blacken-class
     case OBJ_CLASS: {
       ObjClass* klass = (ObjClass*)object;
       markObject((Obj*)klass->name);
-//> Methods and Initializers not-yet
+//> Methods and Initializers mark-methods
       markTable(&klass->methods);
-//< Methods and Initializers not-yet
+//< Methods and Initializers mark-methods
       break;
     }
 
-//< Classes and Instances not-yet
+//< Classes and Instances blacken-class
 //> blacken-closure
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
@@ -139,7 +142,7 @@ static void blackenObject(Obj* object) {
     }
 
 //< blacken-function
-//> Classes and Instances not-yet
+//> Classes and Instances blacken-instance
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
       markObject((Obj*)instance->klass);
@@ -147,7 +150,7 @@ static void blackenObject(Obj* object) {
       break;
     }
 
-//< Classes and Instances not-yet
+//< Classes and Instances blacken-instance
 //> blacken-upvalue
     case OBJ_UPVALUE:
       markValue(((ObjUpvalue*)object)->closed);
@@ -169,28 +172,23 @@ static void freeObject(Obj* object) {
 
 //< Garbage Collection log-free-object
   switch (object->type) {
-//> Methods and Initializers not-yet
+//> Methods and Initializers free-bound-method
     case OBJ_BOUND_METHOD:
       FREE(ObjBoundMethod, object);
       break;
 
-//< Methods and Initializers not-yet
-/* Classes and Instances not-yet < Methods and Initializers not-yet
-    case OBJ_CLASS:
-*/
-//> Classes and Instances not-yet
-//> Methods and Initializers not-yet
+//< Methods and Initializers free-bound-method
+//> Classes and Instances free-class
     case OBJ_CLASS: {
+//> Methods and Initializers free-methods
       ObjClass* klass = (ObjClass*)object;
       freeTable(&klass->methods);
-//< Methods and Initializers not-yet
+//< Methods and Initializers free-methods
       FREE(ObjClass, object);
       break;
-//> Methods and Initializers not-yet
-    }
-//< Methods and Initializers not-yet
+    } // [braces]
 
-//< Classes and Instances not-yet
+//< Classes and Instances free-class
 //> Closures free-closure
     case OBJ_CLOSURE: {
 //> free-upvalues
@@ -211,7 +209,7 @@ static void freeObject(Obj* object) {
     }
 
 //< Calls and Functions free-function
-//> Classes and Instances not-yet
+//> Classes and Instances free-instance
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
       freeTable(&instance->fields);
@@ -219,7 +217,7 @@ static void freeObject(Obj* object) {
       break;
     }
 
-//< Classes and Instances not-yet
+//< Classes and Instances free-instance
 //> Calls and Functions free-native
     case OBJ_NATIVE:
       FREE(ObjNative, object);
@@ -267,9 +265,9 @@ static void markRoots() {
 //> call-mark-compiler-roots
   markCompilerRoots();
 //< call-mark-compiler-roots
-//> Methods and Initializers not-yet
+//> Methods and Initializers mark-init-string
   markObject((Obj*)vm.initString);
-//< Methods and Initializers not-yet
+//< Methods and Initializers mark-init-string
 }
 //< Garbage Collection mark-roots
 //> Garbage Collection trace-references

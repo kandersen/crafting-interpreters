@@ -1,6 +1,3 @@
-^title Types of Values
-^part A Bytecode Virtual Machine
-
 > When you are a Bear of Very Little Brain, and you Think of Things, you find
 > sometimes that a Thing which seemed very Thingish inside you is quite
 > different when it gets out into the open and has other people looking at it.
@@ -147,7 +144,7 @@ So our values are 16 bytes, which seems a little large. We'll improve it
 [later][optimization]. In the meantime, they're still small enough to store on
 the C stack and pass around by value. Lox's semantics allow that because the
 only types we support so far are **immutable**. If we pass a copy of a Value
-containing the number three to some function, we don't need worry about the
+containing the number three to some function, we don't need to worry about the
 caller seeing modifications to the value. You can't "modify" three. It's three
 forever.
 
@@ -179,8 +176,8 @@ back out:
 
 <aside name="as-null">
 
-There's no `AS_NULL` macro because there is only one `nil` value, so a Value
-with type `VAL_NIL` doesn't carry any extra data.
+There's no `AS_NIL` macro because there is only one `nil` value, so a Value with
+type `VAL_NIL` doesn't carry any extra data.
 
 </aside>
 
@@ -320,6 +317,11 @@ occurred. Since we left the tokens behind in the compiler, we look up the line
 in the debug information compiled into the chunk. If our compiler did its job
 right, that corresponds to the line of source code that the bytecode was
 compiled from.
+
+We look into the chunk's debug line array using the current bytecode instruction
+index *minus one*. That's because the interpreter advances past each instruction
+before executing it. So, at the point that we call `runtimeError()`, the failed
+instruction is the previous one.
 
 <aside name="stack">
 
@@ -649,7 +651,7 @@ Anyway, as we add more types to clox, this function will grow new cases. For
 now, these three are sufficient. The other comparison operators are easier since
 they only work on numbers:
 
-^code interpret-comparison (1 before, 1 after)
+^code interpret-comparison (4 before, 1 after)
 
 We already extended the `BINARY_OP` macro to handle operators that return
 non-numeric types. Now we get to use that. We pass in `BOOL_VAL` since the

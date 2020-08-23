@@ -1,8 +1,6 @@
-^title Compiling Expressions
-^part A Bytecode Virtual Machine
-
 > In the middle of the journey of our life I found myself within a dark woods
 > where the straight way was lost.
+>
 > <cite>Dante Alighieri, <em>Inferno</em></cite>
 
 This chapter is exciting for not one, not two, but *three* reasons. First, it
@@ -66,7 +64,7 @@ We pass in the chunk where the compiler will write the code, and then
 `compile()` returns whether or not compilation succeeded. Over in the
 implementation...
 
-^code compile-signature (1 before, 1 after)
+^code compile-signature (2 before, 1 after)
 
 That call to `initScanner()` is the only line that survives this chapter. Rip
 out the temporary code we wrote to test the scanner and replace it with these
@@ -504,7 +502,7 @@ this:
 ^code parse-precedence
 
 This function, once we implement it, starts at the current token and parses any
-expression at the given precence level or higher. We have some other setup to
+expression at the given precedence level or higher. We have some other setup to
 get through before we can write the body of this function, but you can probably
 guess that it will use that table of parsing function pointers I've been talking
 about. For now, don't worry too much about how it works. In order to take the
@@ -577,7 +575,7 @@ Let's walk through trying to compile it with what we know so far:
     `parsePrecedence()`.
 
 Now what? The call to `parsePrecedence()` should consume the entire addition
-exprssion, so it needs to keep going somehow. Fortunately, the parser is right
+expression, so it needs to keep going somehow. Fortunately, the parser is right
 where we need it to be. Now that we've compiled the leading number expression,
 the next token is `+`. That's the exact token that `parsePrecedence()` needs to
 detect that we're in the middle of an infix expression and to realize that the
@@ -716,6 +714,10 @@ talking about it forever, and finally you get to see it:
 
 See what I mean about not wanting to revisit the table each time we needed a new
 column? It's a beast.
+
+If you haven't seen the `[TOKEN_DOT] = ` syntax in a C array literal, that is
+C99's designated initializer syntax. It's clearer than having to count array
+indexes by hand.
 
 </aside>
 
@@ -872,8 +874,9 @@ but the foundation is in place.
     through the interesting parsing functions -- `parsePrecedence()` and the
     parser functions stored in the table. Take this (strange) expression:
 
-        :::lox
-        (-1 + 2) * 3 - -4
+    ```lox
+    (-1 + 2) * 3 - -4
+    ```
 
     Write a trace of how those functions are called. Show the order they are
     called, which calls which, and the arguments passed to them.

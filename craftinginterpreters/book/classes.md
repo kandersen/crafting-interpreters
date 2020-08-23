@@ -1,6 +1,3 @@
-^title Classes
-^part A Tree-Walk Interpreter
-
 > One has no right to love or hate anything if one has not acquired a thorough
 > knowledge of its nature. Great love springs from great knowledge of the
 > beloved object, and if you know it but little you will be able to love it only
@@ -96,10 +93,10 @@ It's like the circle of life, *sans* Sir Elton John.
 
 ## Class Declarations
 
-Like we do, we're gonna start with syntax. A class statement introduces a new
+Like we do, we're gonna start with syntax. A `class` statement introduces a new
 name, so it lives in the `declaration` grammar rule:
 
-```lox
+```ebnf
 declaration → classDecl
             | funDecl
             | varDecl
@@ -113,7 +110,7 @@ The new `classDecl` rule relies on the `function` rule we defined
 
 [function rule]: functions.html#function-declarations
 
-```lox
+```ebnf
 function    → IDENTIFIER "(" parameters? ")" block ;
 parameters  → IDENTIFIER ( "," IDENTIFIER )* ;
 ```
@@ -188,7 +185,7 @@ closing brace at the end, but it ensures the parser doesn't get stuck in an
 infinite loop if the user has a syntax error and forgets to correctly end the
 class body.
 
-We wrap the name and list of methods up in a Stmt.Class node and we're done.
+We wrap the name and list of methods into a Stmt.Class node and we're done.
 Usually, this would feed into the interpreter, but now we need to plumb it
 through the resolver first:
 
@@ -239,8 +236,7 @@ way you create new instances isn't. Ruby, following Smalltalk, creates instances
 by calling a method on the class object itself, a <span
 name="turtles">recursively</span> graceful approach. Some, like C++ and Java
 have a `new` keyword dedicated to birthing a new object. Python has you "call"
-the class itself like a function. (JavaScript, ever weird, sort of does both of
-the latter.)
+the class itself like a function. (JavaScript, ever weird, sort of does both.)
 
 <aside name="turtles">
 
@@ -333,7 +329,7 @@ name from the object the expression evaluates to. That `.` is as high precedence
 as the parentheses in a function call expression, so we slot it into the grammar
 by replacing the existing `call` rule with:
 
-```lox
+```ebnf
 call → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 ```
 
@@ -360,7 +356,7 @@ method:
 
 ^code parse-property (3 before, 4 after)
 
-The outer while loop there corresponds to the `*` in the grammar rule. We zip
+The outer `while` loop there corresponds to the `*` in the grammar rule. We zip
 along the tokens building up a chain of calls and gets as we find parentheses
 and dots, like so:
 
@@ -450,9 +446,9 @@ someObject.someProperty = value;
 In grammar land, we extend the rule for assignment to allow dotted identifiers
 on the left-hand side:
 
-```lox
+```ebnf
 assignment → ( call "." )? IDENTIFIER "=" assignment
-           | logic_or;
+           | logic_or ;
 ```
 
 Unlike getters, setters don't chain. The reference to `call` allows any high
@@ -933,7 +929,7 @@ each other. At runtime, we create the environment after we find the method on
 the instance. We replace the previous line of code that simply returned the
 method's LoxFunction with this:
 
-^code lox-instance-bind-method (1 before, 1 after)
+^code lox-instance-bind-method (1 before, 3 after)
 
 Note the new call to `bind()`. That looks like so:
 
@@ -981,7 +977,7 @@ has clearly made a mistake. The sooner they find and fix that mistake, the
 happier they'll be.
 
 Our resolution pass is a fine place to detect this error statically. It already
-detects return statements outside of functions. We'll do something similar for
+detects `return` statements outside of functions. We'll do something similar for
 `this`. In the vein of our existing FunctionType enum, we define a new ClassType
 one:
 
@@ -1062,7 +1058,7 @@ creates a new LoxInstance object.
 We'll do the remaining part -- user-defined initialization -- now. Languages
 have a variety of notations for the chunk of code that sets up a new object for
 a class. C++, Java, and C# use a method whose name matches the class name. Ruby
-and Python call it `init()`. That's nice and short, so we'll do that.
+and Python call it `init()`. The latter is nice and short, so we'll do that.
 
 In LoxClass's implementation of LoxCallable, we add a few more lines:
 
@@ -1172,13 +1168,13 @@ initializer or not:
 
 ^code resolver-initializer-type (1 before, 1 after)
 
-When we later traverse into a return statement, we check that field and make it
-an error to return a value from inside an `init()` method:
+When we later traverse into a `return` statement, we check that field and make
+it an error to return a value from inside an `init()` method:
 
 ^code return-in-initializer (1 before, 1 after)
 
 We're *still* not done. We statically disallow returning a *value* from an
-initializer, but you can still use an empty early return:
+initializer, but you can still use an empty early `return`:
 
 ```lox
 class Foo {
@@ -1194,8 +1190,8 @@ over in LoxFunction:
 
 ^code early-return-this (1 before, 1 after)
 
-If we're in an initializer and execute a return statement, instead of returning
-the value (which will always be `nil`), we again return `this`.
+If we're in an initializer and execute a `return` statement, instead of
+returning the value (which will always be `nil`), we again return `this`.
 
 Phew! That was a whole list of tasks but our reward is that our little
 interpreter has grown an entire programming paradigm. Classes, methods, fields,
@@ -1210,20 +1206,19 @@ interpreter has grown an entire programming paradigm. Classes, methods, fields,
     them. Use a `class` keyword preceding the method to indicate a static method
     that hangs off the class object:
 
-        :::lox
-        class Math {
-          class square(n) {
-            return n * n;
-          }
-        }
+    ```lox
+    class Math {
+      class square(n) {
+        return n * n;
+      }
+    }
 
-        print Math.square(3); // Prints "9".
+    print Math.square(3); // Prints "9".
+    ```
 
     You can solve this however you like, but the "[metaclasses][]" used by
     Smalltalk and Ruby are a particularly elegant approach. *Hint: Make LoxClass
     extend LoxInstance and go from there.*
-
-[metaclasses]: https://en.wikipedia.org/wiki/Metaclass
 
 2.  Most modern languages support "getters" and "setters" -- members on a class
     that look like field reads and writes but that actually execute user-defined
@@ -1231,19 +1226,20 @@ interpreter has grown an entire programming paradigm. Classes, methods, fields,
     parameter list. The body of the getter is executed when a property with that
     name is accessed:
 
-        :::lox
-        class Circle {
-          init(radius) {
-            this.radius = radius;
-          }
+    ```lox
+    class Circle {
+      init(radius) {
+        this.radius = radius;
+      }
 
-          area {
-            return 3.141592653 * this.radius * this.radius;
-          }
-        }
+      area {
+        return 3.141592653 * this.radius * this.radius;
+      }
+    }
 
-        var circle = Circle(4);
-        print circle.area; // Prints roughly "50.2655".
+    var circle = Circle(4);
+    print circle.area; // Prints roughly "50.2655".
+    ```
 
 3.  Python and JavaScript allow you to freely access an object's fields from
     outside of its own methods. Ruby and Smalltalk encapsulate instance state.
@@ -1254,6 +1250,8 @@ interpreter has grown an entire programming paradigm. Classes, methods, fields,
 
     What are the trade-offs between these approaches and why might a language
     prefer one or the other?
+
+[metaclasses]: https://en.wikipedia.org/wiki/Metaclass
 
 </div>
 
@@ -1307,8 +1305,9 @@ them better? We language nerds have a tendency to fetishize minimalism.
 Personally, I think simplicity is only part of the equation. What we really want
 to give the user is *power*, which I define as:
 
-    :::text
-    power = breadth × ease ÷ complexity
+```text
+power = breadth × ease ÷ complexity
+```
 
 None of these are precise numeric measures. I'm using math as analogy here, not
 actual quantification.
@@ -1317,8 +1316,6 @@ actual quantification.
     C has a lot of breadth -- it's been used for everything from operating
     systems to user applications to games. Domain-specific languages like
     AppleScript and Matlab have less breadth.
-
-[proto]: https://en.wikipedia.org/wiki/Prototype-based_programming
 
 *   **Ease** is how little effort it takes to make the language do what you
     want. "Usability" might be another term, though it carries more baggage than
@@ -1331,6 +1328,8 @@ actual quantification.
     language's spec, or how many keywords it has. It's how much the user has to
     load into their wetware before they can be productive in the system. It is
     the antonym of simplicity.
+
+[proto]: https://en.wikipedia.org/wiki/Prototype-based_programming
 
 Reducing complexity *does* increase power. The smaller the denominator, the
 larger the resulting value, so our intuition that simplicity is good is valid.

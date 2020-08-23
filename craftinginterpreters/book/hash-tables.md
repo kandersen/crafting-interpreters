@@ -1,6 +1,3 @@
-^title Hash Tables
-^part A Bytecode Virtual Machine
-
 > Hash, x. There is no definition for this word -- nobody knows what hash is.
 >
 > <cite>Ambrose Bierce, <em>The Unabridged Devil's Dictionary</em></cite>
@@ -39,7 +36,7 @@ That's pretty remarkable when you think about it. Imagine you've got a big stack
 of business cards and I ask you to find a certain person. The bigger the pile
 is, the longer it will take. Even if the pile is nicely sorted and you've got
 the manual dexterity to do a binary search by hand, you're still talking
-`O(log(n))`. But with a <span name="rolodex">hash table</span>, it takes the
+*O(log n)*. But with a <span name="rolodex">hash table</span>, it takes the
 same time to find that business card when the stack has ten cards as when it has
 a million.
 
@@ -220,7 +217,7 @@ then walk the list until you find an entry with the matching key.
 <img src="image/hash-tables/chaining.png" alt="An array with eight buckets. Bucket 2 links to a chain of two nodes. Bucket 5 links to a single node." />
 
 In catastrophically bad cases where every entry collides in the same bucket, the
-data structure degrades into a single unsorted linked list with `O(n)` lookup.
+data structure degrades into a single unsorted linked list with *O(n)* lookup.
 In practice, it's easy to avoid that by controlling the load factor and how
 entries get scattered across buckets. In typical separate chained hash tables,
 it's rare for a bucket to have more than one or two entries.
@@ -308,8 +305,8 @@ array size (8) puts it in bucket 2:
 <img src="image/hash-tables/insert-2.png" alt="Bagel goes into bucket 2." class="wide" />
 
 Next, we insert "jam". That also wants to go in bucket 2 (106 mod 8 = 2), but
-that bucket's taken. We keeping probing to the next bucket. It's empty, so we
-put it there:
+that bucket's taken. We keep probing to the next bucket. It's empty, so we put
+it there:
 
 <img src="image/hash-tables/insert-3.png" alt="Jam goes into bucket 3, since 2 is full." class="wide" />
 
@@ -482,8 +479,8 @@ Over in the "object" module in ObjString, we add:
 Each ObjString stores the hash code for that string. Since strings are immutable
 in Lox, we can calculate it once up front and be certain that it will never get
 invalidated. Caching it eagerly makes a kind of sense: Allocating the string and
-copying its characters over is already an `O(n)` operation, so it's a good time
-to also do the `O(n)` calculation of the string's hash.
+copying its characters over is already an *O(n)* operation, so it's a good time
+to also do the *O(n)* calculation of the string's hash.
 
 Whenever we call the internal function to allocate a string, we pass in its
 hash code:
@@ -616,12 +613,12 @@ enough, it's a hash table that provides the tool we need.
 </aside>
 
 *   Otherwise, the bucket has an entry in it, but with a different key. This is
-    a collision. In that case, we start probing. That's what that for loop does.
-    We start at the bucket where the entry would ideally go. If that bucket is
-    empty or has the same key, we're done. Otherwise, we advance to the next
-    element -- this is the *linear* part of "linear probing" -- and check there.
-    If we go past the end of the array, that second modulo operator wraps us
-    back around to the beginning.
+    a collision. In that case, we start probing. That's what that `for` loop
+    does. We start at the bucket where the entry would ideally go. If that
+    bucket is empty or has the same key, we're done. Otherwise, we advance to
+    the next element -- this is the *linear* part of "linear probing" -- and
+    check there. If we go past the end of the array, that second modulo operator
+    wraps us back around to the beginning.
 
 We exit the loop when we find either an empty bucket or a bucket with the same
 key as the one we're looking for. You might be wondering about an infinite loop.
@@ -789,7 +786,7 @@ entry works.
 
 <aside name="tombstone">
 
-<img src="image/hash-tables/tombstone.png" alt="A tombstone enscribed 'Here lies entry bagel -> 3.75, gone but not deleted." />
+<img src="image/hash-tables/tombstone.png" alt="A tombstone enscribed 'Here lies entry bagel &rarr; 3.75, gone but not deleted'." />
 
 </aside>
 
@@ -1023,10 +1020,10 @@ the key we're looking for instead of an ObjString. At the point that we call
 this, we haven't created an ObjString yet.
 
 Second, when checking to see if we found the key, we look at the actual strings.
-First, we see if they have the same hash. That's quick to check and if the
-hashes aren't equal, the strings definitely aren't the same.
+First, we see if they have matching lengths and hashes. Those are quick to check
+and if they aren't equal, the strings definitely aren't the same.
 
-Finally, just in case there is a hash collision, we do an actual
+Finally, in case there is a hash collision, we do an actual
 character-by-character string comparison. This is the one place in the VM where
 we actually test strings for textual equality. We do it here to deduplicate
 strings and then the rest of the VM can take for granted that any two strings at

@@ -1,6 +1,3 @@
-^title Chunks of Bytecode
-^part A Bytecode Virtual Machine
-
 > If you find that you're spending almost all your time on theory, start turning
 > some attention to practical things; it will improve your theories. If you find
 > that you're spending almost all your time on practice, start turning some
@@ -359,14 +356,14 @@ before storing an element." class="wide" />
 <aside name="amortized">
 
 Copying the existing elements when you grow the array makes it seem like
-appending an element is `O(n)`, not `O(1)` like I said above. However, you only
+appending an element is *O(n)*, not *O(1)* like I said above. However, you only
 need to do this copy step on *some* of the appends. Most of the time, there is
 already extra capacity, so you don't need to copy.
 
 To understand how this works, we need [**amortized
 analysis**](https://en.wikipedia.org/wiki/Amortized_analysis). That shows us
 that as long as we grow the array by a multiple of its current size, when we
-average out the cost of a *sequence* of appends, each append is `O(1)`.
+average out the cost of a *sequence* of appends, each append is *O(1)*.
 
 </aside>
 
@@ -476,11 +473,10 @@ That sounds like a lot of cases to handle, but here's the implementation:
 
 ^code memory-c
 
-Pretty simple. We handle the deallocation case ourselves by calling `free()`
-when `newSize` is zero. Otherwise, we fall through to calling the C standard
-library's `realloc()` function. That function conveniently supports the other
-three aspects of our policy. When `oldSize` is zero, `realloc()` is equivalent
-to calling `malloc()`.
+When `newSize` is zero, we handle the deallocation case ourselves by calling
+`free()`. Otherwise, we rely on the C standard library's `realloc()` function.
+That function conveniently supports the other three aspects of our policy. When
+`oldSize` is zero, `realloc()` is equivalent to calling `malloc()`.
 
 The interesting cases are when both `oldSize` and `newSize` are not zero. Those
 tell `realloc()` to resize the previously-allocated block. If the new size is
@@ -494,6 +490,17 @@ there isn't room to grow the block, `realloc()` instead allocates a *new* block
 of memory of the desired size, copies over the old bytes, frees the old block,
 and then returns a pointer to the new block. Remember, that's exactly the
 behavior we want for our dynamic array.
+
+Because computers are finite lumps of matter and not the perfect mathematical
+abstractions computer science theory would have us believe, allocation can fail
+if there isn't enough memory and `realloc()` will return `NULL`. We should
+handle that:
+
+^code out-of-memory (1 before, 1 after)
+
+There's not really anything *useful* that our VM can do if it can't get the
+memory it needs, but we at least detect that and abort the process immediately
+instead of returning a `NULL` pointer and letting it go off the rails later.
 
 <aside name="shrink">
 
@@ -1046,10 +1053,11 @@ the [next chapter][vm], we will see how the virtual machine does exactly that.
 
     Implement this function:
 
-        :::c
-        void writeConstant(Chunk* chunk, Value value, int line) {
-          // Implement me...
-        }
+    ```c
+    void writeConstant(Chunk* chunk, Value value, int line) {
+      // Implement me...
+    }
+    ```
 
     It adds `value` to `chunk`&rsquo;s constant array and then writes an
     appropriate instruction to load the constant. Also add support to the
@@ -1065,12 +1073,12 @@ the [next chapter][vm], we will see how the virtual machine does exactly that.
     What is required to allocate a block of memory? Free it? How do they make
     that efficient? What do they do about fragmentation?
 
-    *Hardcore mode: Implement `reallocate()` without calling `realloc()`,
+    *Hardcore mode:* Implement `reallocate()` without calling `realloc()`,
     `malloc()`, or `free()`. You are allowed to call `malloc()` *once*, at the
     beginning of the interpreter's execution, to allocate a single big block of
     memory which your `reallocate()` function has access to. It parcels out
     blobs of memory from that single region, your own personal heap. It's your
-    job to define how it does that.*
+    job to define how it does that.
 
 </div>
 

@@ -1,6 +1,3 @@
-^title Representing Code
-^part A Tree-Walk Interpreter
-
 > To dwellers in a wood, almost every species of tree has its voice as well as
 > its feature.
 > <cite>Thomas Hardy, <em>Under the Greenwood Tree</em></cite>
@@ -36,7 +33,7 @@ you manually evaluate an arithmetic expression like this:
 1 + 2 * 3 - 4
 ```
 
-Because you understand the order or operations -- the old "[Please Excuse My
+Because you understand the order of operations -- the old "[Please Excuse My
 Dear Aunt Sally][sally]" stuff -- you know that the `*` is evaluated before the
 `+` or `-`. One way to visualize that precedence is using a tree. Leaf nodes are
 numbers, and interior nodes are operators with branches for each of their
@@ -96,10 +93,10 @@ But regular languages aren't powerful enough to handle expressions which can
 nest arbitrarily deeply.
 
 We need a bigger hammer, and that hammer is a **context-free grammar**
-(**CFG**). It's the next heaviest tool in the toolbox of **[formal
-grammars][]**. A formal grammar takes a set of atomic pieces it calls its
-"alphabet". Then it defines a (usually infinite) set of "strings" that are "in"
-the grammar. Each string is a sequence of "letters" in the alphabet.
+(**CFG**). It's the next heaviest tool in the toolbox of
+**[formal grammars][]**. A formal grammar takes a set of atomic pieces it calls
+its "alphabet". Then it defines a (usually infinite) set of "strings" that are
+"in" the grammar. Each string is a sequence of "letters" in the alphabet.
 
 [formal grammars]: https://en.wikipedia.org/wiki/Formal_grammar
 
@@ -207,8 +204,9 @@ their own tastes.
 [bnf]: https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form
 
 I tried to come up with something clean. Each rule is a name, followed by an
-arrow (`→`), followed by its sequence of symbols. Terminals are quoted strings,
-and nonterminals are lowercase words.
+arrow (`→`), followed by a sequence of symbols, and finally ending with a
+semicolon (`;`). Terminals are quoted strings, and nonterminals are lowercase
+words.
 
 <aside name="turtles">
 
@@ -227,7 +225,7 @@ book. Sorry.
 
 </aside>
 
-```lox
+```ebnf
 breakfast  → protein "with" breakfast "on the side" ;
 breakfast  → protein ;
 breakfast  → bread ;
@@ -260,7 +258,7 @@ protein "with" breakfast "on the side"
 We need to expand that first nonterminal, `protein`, so we pick a production for
 that. Let's pick:
 
-```lox
+```ebnf
 protein → cooked "eggs" ;
 ```
 
@@ -318,14 +316,16 @@ expressions in the body of a rule:
 *   Instead of repeating the rule name each time we want to add another
     production for it, we'll allow a series of productions separated by `|`:
 
-        :::lox
-        bread → "toast" | "biscuits" | "English muffin" ;
+    ```ebnf
+    bread → "toast" | "biscuits" | "English muffin" ;
+    ```
 
 *   Further, we'll allow `(` and `)` for grouping and then allow `|` within that
     to select one from a series of options within the middle of a production:
 
-        :::lox
-        protein → ( "scrambled" | "poached" | "fried" ) "eggs" ;
+    ```ebnf
+    protein → ( "scrambled" | "poached" | "fried" ) "eggs" ;
+    ```
 
 *   Using <span name="recursion">recursion</span> to support repeated sequences
     of symbols has a certain appealing <span name="purity">purity</span>, but
@@ -333,8 +333,9 @@ expressions in the body of a rule:
     loop. Instead, we allow a postfix `*` to mean the previous symbol or group
     may be repeated zero or more times.
 
-        :::lox
-        crispiness → "really" "really"* ;
+    ```ebnf
+    crispiness → "really" "really"* ;
+    ```
 
 <aside name="purity">
 
@@ -347,18 +348,20 @@ recursion.
 *   A postfix `+` is similar, but requires the preceding production to appear
     at least once.
 
-        :::lox
-        crispiness → "really"+ ;
+    ```ebnf
+    crispiness → "really"+ ;
+    ```
 
 *   A postfix `?` is for an optional production. The thing before it can appear
     zero or one time, but not more.
 
-        :::lox
-        breakfast → protein ( "with" breakfast "on the side" )? ;
+    ```ebnf
+    breakfast → protein ( "with" breakfast "on the side" )? ;
+    ```
 
 With all of that sugar, our breakfast grammar condenses down to:
 
-```lox
+```ebnf
 breakfast → protein ( "with" breakfast "on the side" )?
           | bread ;
 
@@ -419,7 +422,7 @@ That gives us enough syntax for expressions like:
 
 Using our handy dandy new notation, here's a grammar for those:
 
-```lox
+```ebnf
 expression → literal
            | unary
            | binary
@@ -570,7 +573,7 @@ Picture me doing an awkward robot dance when you read that. "AU-TO-MATE."
 
 </aside>
 
-Instead of tediously hand-writing each class definion, field declaration,
+Instead of tediously hand-writing each class definition, field declaration,
 constructor, and initializer, we'll hack together a <span
 name="python">script</span> that does it for us. It has a description of each
 tree type -- its name and fields -- and it prints out the Java code needed to
@@ -634,8 +637,9 @@ There we go. All of that glorious Java boilerplate is done. It declares each
 field in the class body. It defines a constructor for the class with parameters
 for each field and initializes them in the body.
 
-Run this script now and it <span name="longer">blasts</span> out a few dozen
-lines of code. That's about to get even longer.
+Compile and run this Java program now and it <span name="longer">blasts</span>
+out a new &ldquo;.java" file containing a few dozen lines of code. That file's
+about to get even longer.
 
 <aside name="longer">
 
@@ -649,12 +653,13 @@ implementing jlox and defined all of its syntax tree nodes.
 ## Working with Trees
 
 Put on your imagination hat for a moment. Even though we aren't there yet,
-consider what the interpreter will do with the syntax trees. It needs to select
-a different chunk of code to handle each kind of expression. With tokens, we can
-simply switch on the TokenType. But we don't have a "type" enum for the syntax
-trees, just a separate Java class for each one.
+consider what the interpreter will do with the syntax trees. Each kind of
+expression in Lox behaves differently at runtime. That means the interpreter
+needs to select a different chunk of code to handle each expression type. With
+tokens, we can simply switch on the TokenType. But we don't have a "type" enum
+for the syntax trees, just a separate Java class for each one.
 
-We could write some long chain of type tests:
+We could write a long chain of type tests:
 
 ```java
 if (expr instanceof Expr.Binary) {
@@ -677,10 +682,10 @@ which each subclass then implements to interpret itself.
 
 <aside name="interpreter-pattern">
 
-This exact thing is literally called the ["Interpreter pattern"][interpreter
-pattern] in "Design Patterns: Elements of Reusable Object-Oriented Software".
+This exact thing is literally called the ["Interpreter pattern"][interp] in
+"Design Patterns: Elements of Reusable Object-Oriented Software".
 
-[interpreter pattern]: https://en.wikipedia.org/wiki/Interpreter_pattern
+[interp]: https://en.wikipedia.org/wiki/Interpreter_pattern
 
 </aside>
 
@@ -700,7 +705,7 @@ violates [separation of concerns][] and leads to hard to maintain code.
 
 ### The Expression Problem
 
-This problem is more fundamental than it may at first seem. We have a handful of
+This problem is more fundamental than it may seem at first. We have a handful of
 types, and a handful of high level operations like "interpret". For each pair of
 type and operation, we need a specific implementation. Picture a table:
 
@@ -837,7 +842,7 @@ you how to apply this pattern in languages that don't support overloading.
 
 To define a new operation that can be performed on pastries, we create a new
 class that implements that interface. It has a concrete method for each type of
-pastry. That keeps the code for the operation on both types all nestled snuggly
+pastry. That keeps the code for the operation on both types all nestled snugly
 together in one class.
 
 Given some pastry, how do we route it to the correct method on the visitor based
@@ -910,8 +915,13 @@ own type:
 ^code accept-method (1 before, 2 after)
 
 There we go. Now we can define operations on expressions without having to muck
-with the classes or our generator script. Before we end this rambling chapter,
-let's try it out...
+with the classes or our generator script. Compile and run this generator script
+to output an updated "Expr.java" file. It contains a generated Visitor
+interface and a set of expression node classes that support the Visitor pattern
+using it.
+
+Before we end this rambling chapter, let's implement that Visitor interface and
+see the pattern in action.
 
 ## A (Not Very) Pretty Printer
 
@@ -1002,10 +1012,11 @@ when we start parsing Lox code into syntax trees.
 1.  Earlier, I said that the `|`, `*`, and `+` forms we added to our grammar
     metasyntax were just syntactic sugar. Given this grammar:
 
-        :::lox
-        expr → expr ( "(" ( expr ( "," expr )* )? ")" | "." IDENTIFIER )*
-             | IDENTIFIER
-             | NUMBER
+    ```ebnf
+    expr → expr ( "(" ( expr ( "," expr )* )? ")" | "." IDENTIFIER )*
+         | IDENTIFIER
+         | NUMBER
+    ```
 
     Produce a grammar that matches the same language but does not use any of
     that notational sugar.
@@ -1026,13 +1037,15 @@ when we start parsing Lox code into syntax trees.
     stack. An arithmetic operator pops the top two numbers, performs the
     operation, and pushes the result. Thus, this:
 
-        :::lox
-        (1 + 2) * (4 - 3)
+    ```lox
+    (1 + 2) * (4 - 3)
+    ```
 
     in RPN becomes:
 
-        :::lox
-        1 2 + 4 3 - *
+    ```lox
+    1 2 + 4 3 - *
+    ```
 
     Define a visitor class for our syntax tree classes that takes an expression,
     converts it to RPN, and returns the resulting string.

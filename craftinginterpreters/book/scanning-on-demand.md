@@ -1,6 +1,3 @@
-^title Scanning on Demand
-^part A Bytecode Virtual Machine
-
 > Literature is idiosyncratic arrangements in horizontal lines in only
 > twenty-six phonetic symbols, ten Arabic numbers, and about eight punctuation
 > marks.
@@ -11,8 +8,8 @@ Our second interpreter, clox, has three phases -- scanner, compiler, and virtual
 machine. A data structure joins each pair of phases. Tokens flow from scanner to
 compiler, and chunks of bytecode from compiler to VM. We began our
 implementation near the end with [chunks][] and the [VM][]. Now, we're going to
-hop back to the beginning and build a scanner that makes tokens. In the [next
-chapter][], we'll tie the two ends together with our bytecode compiler.
+hop back to the beginning and build a scanner that makes tokens. In the
+[next chapter][], we'll tie the two ends together with our bytecode compiler.
 
 [chunks]: chunks-of-bytecode.html
 [vm]: a-virtual-machine.html
@@ -249,8 +246,8 @@ into the original source string and doesn't have a terminator at the end.
 </aside>
 
 This loops indefinitely. Each turn through the loop, it scans one token and
-prints it. When it reaches a special "end of file" token, it stops. For example,
-if we run the interpreter on this program:
+prints it. When it reaches a special "end of file" token or an error, it stops.
+For example, if we run the interpreter on this program:
 
 ```lox
 print 1 + 2;
@@ -368,9 +365,11 @@ a sister function for returning error tokens:
 <span name="axolotl"></span>
 
 <aside name="axolotl">
+
 This part of the chapter is pretty dry, so here's a picture of an axolotl.
 
 <img src="image/scanning-on-demand/axolotl.png" alt="A drawing of an axolotl." />
+
 </aside>
 
 The only difference is that the "lexeme" points to the error message string
@@ -555,8 +554,8 @@ Once we've found an identifier, we scan the rest of it using:
 ^code identifier
 
 After the first letter, we allow digits too, and we keep consuming alphanumerics
-until we run out of them. Then we produce a token with the proper type. "Proper
-type" is where the excitement happens:
+until we run out of them. Then we produce a token with the proper type.
+Determining that "proper" type is where the excitement happens:
 
 ^code identifier-type
 
@@ -756,7 +755,7 @@ itself is a valid identifier too, after all. The other letter that branches is
 
 ^code keyword-t (1 before, 1 after)
 
-That's it. A couple of nested switch statements. Not only is this code <span
+That's it. A couple of nested `switch` statements. Not only is this code <span
 name="short">short</span>, but it's very very fast. It does the minimum amount
 of work required to detect a keyword, and bails out as soon as it can tell the
 identifier will not be a reserved one.
@@ -785,16 +784,18 @@ writing the simplest code I can is sufficient to accomplish that.
 
     For example, if Lox supported string interpolation, then this:
 
-        :::lox
-        var drink = "Tea";
-        var steep = 4;
-        var cool = 2;
-        print "${drink} will be ready in ${steep + cool} minutes.";
+    ```lox
+    var drink = "Tea";
+    var steep = 4;
+    var cool = 2;
+    print "${drink} will be ready in ${steep + cool} minutes.";
+    ```
 
     Would print:
 
-        :::text
-        Tea will be ready in 6 minutes.
+    ```text
+    Tea will be ready in 6 minutes.
+    ```
 
     What token types would you define to implement a scanner for string
     interpolation? What sequence of tokens would you emit for the above string
@@ -802,8 +803,9 @@ writing the simplest code I can is sufficient to accomplish that.
 
     What tokens would you emit for:
 
-        :::text
-        "Nested ${"interpolation?! Are you ${"mad?!"}"}"
+    ```text
+    "Nested ${"interpolation?! Are you ${"mad?!"}"}"
+    ```
 
     Consider looking at other language implementations that support
     interpolation to see how they handle it.
@@ -811,8 +813,9 @@ writing the simplest code I can is sufficient to accomplish that.
 2.  Several languages use angle brackets for generics and also have a `>>` right
     shift operator. This led to a classic problem in early versions of C++:
 
-        :::c++
-        vector<vector<string>> nestedVectors;
+    ```c++
+    vector<vector<string>> nestedVectors;
+    ```
 
     This would produce a compile error because the `>>` was lexed to a single
     right shift token, not two `>` tokens. Users were forced to avoid this by

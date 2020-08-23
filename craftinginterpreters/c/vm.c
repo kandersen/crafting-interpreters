@@ -51,12 +51,12 @@ static void runtimeError(const char* format, ...) {
   fputs("\n", stderr);
 
 /* Types of Values runtime-error < Calls and Functions runtime-error-temp
-  size_t instruction = vm.ip - vm.chunk->code;
+  size_t instruction = vm.ip - vm.chunk->code - 1;
   int line = vm.chunk->lines[instruction];
 */
 /* Calls and Functions runtime-error-temp < Calls and Functions runtime-error-stack
   CallFrame* frame = &vm.frames[vm.frameCount - 1];
-  size_t instruction = frame->ip - frame->function->chunk.code;
+  size_t instruction = frame->ip - frame->function->chunk.code - 1;
   int line = frame->function->chunk.lines[instruction];
 */
 /* Types of Values runtime-error < Calls and Functions runtime-error-stack
@@ -121,10 +121,13 @@ void initVM() {
 //> Hash Tables init-strings
   initTable(&vm.strings);
 //< Hash Tables init-strings
-//> Methods and Initializers not-yet
+//> Methods and Initializers init-init-string
 
+//> null-init-string
+  vm.initString = NULL;
+//< null-init-string
   vm.initString = copyString("init", 4);
-//< Methods and Initializers not-yet
+//< Methods and Initializers init-init-string
 //> Calls and Functions define-native-clock
 
   defineNative("clock", clockNative);
@@ -138,9 +141,9 @@ void freeVM() {
 //> Hash Tables free-strings
   freeTable(&vm.strings);
 //< Hash Tables free-strings
-//> Methods and Initializers not-yet
+//> Methods and Initializers clear-init-string
   vm.initString = NULL;
-//< Methods and Initializers not-yet
+//< Methods and Initializers clear-init-string
 //> Strings call-free-objects
   freeObjects();
 //< Strings call-free-objects
@@ -209,48 +212,45 @@ static bool call(ObjClosure* closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
-//> Methods and Initializers not-yet
+//> Methods and Initializers call-bound-method
       case OBJ_BOUND_METHOD: {
         ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
-
-        // Replace the bound method with the receiver so it's in the
-        // right slot when the method is called.
+//> store-receiver
         vm.stackTop[-argCount - 1] = bound->receiver;
+//< store-receiver
         return call(bound->method, argCount);
       }
 
-//< Methods and Initializers not-yet
-//> Classes and Instances not-yet
+//< Methods and Initializers call-bound-method
+//> Classes and Instances call-class
       case OBJ_CLASS: {
         ObjClass* klass = AS_CLASS(callee);
-
-        // Create the instance.
         vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
-//> Methods and Initializers not-yet
-        // Call the initializer, if there is one.
+//> Methods and Initializers call-init
         Value initializer;
         if (tableGet(&klass->methods, vm.initString, &initializer)) {
           return call(AS_CLOSURE(initializer), argCount);
+//> no-init-arity-error
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
           return false;
+//< no-init-arity-error
         }
 
-//< Methods and Initializers not-yet
+//< Methods and Initializers call-init
         return true;
       }
-//< Classes and Instances not-yet
+//< Classes and Instances call-class
 //> Closures call-value-closure
       case OBJ_CLOSURE:
         return call(AS_CLOSURE(callee), argCount);
-
 //< Closures call-value-closure
 /* Calls and Functions call-value < Closures call-value-closure
       case OBJ_FUNCTION: // [switch]
         return call(AS_FUNCTION(callee), argCount);
-
 */
 //> call-native
+        
       case OBJ_NATIVE: {
         NativeFn native = AS_NATIVE(callee);
         Value result = native(argCount, vm.stackTop - argCount);
@@ -270,11 +270,9 @@ static bool callValue(Value callee, int argCount) {
   return false;
 }
 //< Calls and Functions call-value
-//> Methods and Initializers not-yet
-
+//> Methods and Initializers invoke-from-class
 static bool invokeFromClass(ObjClass* klass, ObjString* name,
                             int argCount) {
-  // Look for the method.
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
     runtimeError("Undefined property '%s'.", name->chars);
@@ -283,29 +281,32 @@ static bool invokeFromClass(ObjClass* klass, ObjString* name,
 
   return call(AS_CLOSURE(method), argCount);
 }
-
+//< Methods and Initializers invoke-from-class
+//> Methods and Initializers invoke
 static bool invoke(ObjString* name, int argCount) {
   Value receiver = peek(argCount);
+//> invoke-check-type
 
   if (!IS_INSTANCE(receiver)) {
     runtimeError("Only instances have methods.");
     return false;
   }
 
+//< invoke-check-type
   ObjInstance* instance = AS_INSTANCE(receiver);
+//> invoke-field
 
-  // First look for a field which may shadow a method.
   Value value;
   if (tableGet(&instance->fields, name, &value)) {
-    // Load the field onto the stack in place of the receiver.
     vm.stackTop[-argCount - 1] = value;
-    // Try to invoke it like a function.
     return callValue(value, argCount);
   }
 
+//< invoke-field
   return invokeFromClass(instance->klass, name, argCount);
 }
-
+//< Methods and Initializers invoke
+//> Methods and Initializers bind-method
 static bool bindMethod(ObjClass* klass, ObjString* name) {
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
@@ -314,11 +315,11 @@ static bool bindMethod(ObjClass* klass, ObjString* name) {
   }
 
   ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));
-  pop(); // Instance.
+  pop();
   push(OBJ_VAL(bound));
   return true;
 }
-//< Methods and Initializers not-yet
+//< Methods and Initializers bind-method
 //> Closures capture-upvalue
 static ObjUpvalue* captureUpvalue(Value* local) {
 //> look-for-existing-upvalue
@@ -358,16 +359,14 @@ static void closeUpvalues(Value* last) {
   }
 }
 //< Closures close-upvalues
-//> Methods and Initializers not-yet
-
+//> Methods and Initializers define-method
 static void defineMethod(ObjString* name) {
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
   tableSet(&klass->methods, name, method);
   pop();
-  pop();
 }
-//< Methods and Initializers not-yet
+//< Methods and Initializers define-method
 //> Types of Values is-falsey
 static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
@@ -446,7 +445,6 @@ static InterpretResult run() {
         runtimeError("Operands must be numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
       } \
-      \
       double b = AS_NUMBER(pop()); \
       double a = AS_NUMBER(pop()); \
       push(valueType(a op b)); \
@@ -578,50 +576,60 @@ static InterpretResult run() {
         break;
       }
 //< Closures interpret-set-upvalue
-//> Classes and Instances not-yet
+//> Classes and Instances interpret-get-property
 
       case OP_GET_PROPERTY: {
+//> get-not-instance
         if (!IS_INSTANCE(peek(0))) {
           runtimeError("Only instances have properties.");
           return INTERPRET_RUNTIME_ERROR;
         }
 
+//< get-not-instance
         ObjInstance* instance = AS_INSTANCE(peek(0));
         ObjString* name = READ_STRING();
+        
         Value value;
         if (tableGet(&instance->fields, name, &value)) {
           pop(); // Instance.
           push(value);
           break;
         }
+//> get-undefined
 
-/* Classes and Instances not-yet < Methods and Initializers not-yet
+//< get-undefined
+/* Classes and Instances get-undefined < Methods and Initializers get-method
         runtimeError("Undefined property '%s'.", name->chars);
         return INTERPRET_RUNTIME_ERROR;
 */
-//> Methods and Initializers not-yet
+//> Methods and Initializers get-method
         if (!bindMethod(instance->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
-//< Methods and Initializers not-yet
+//< Methods and Initializers get-method
       }
+//< Classes and Instances interpret-get-property
+//> Classes and Instances interpret-set-property
 
       case OP_SET_PROPERTY: {
+//> set-not-instance
         if (!IS_INSTANCE(peek(1))) {
           runtimeError("Only instances have fields.");
           return INTERPRET_RUNTIME_ERROR;
         }
 
+//< set-not-instance
         ObjInstance* instance = AS_INSTANCE(peek(1));
         tableSet(&instance->fields, READ_STRING(), peek(0));
+        
         Value value = pop();
         pop();
         push(value);
         break;
       }
-//< Classes and Instances not-yet
-//> Superclasses not-yet
+//< Classes and Instances interpret-set-property
+//> Superclasses interpret-get-super
 
       case OP_GET_SUPER: {
         ObjString* name = READ_STRING();
@@ -631,7 +639,7 @@ static InterpretResult run() {
         }
         break;
       }
-//< Superclasses not-yet
+//< Superclasses interpret-get-super
 //> Types of Values interpret-equal
 
       case OP_EQUAL: {
@@ -754,22 +762,22 @@ static InterpretResult run() {
       }
 
 //< Calls and Functions interpret-call
-//> Methods and Initializers not-yet
+//> Methods and Initializers interpret-invoke
       case OP_INVOKE: {
-        int argCount = READ_BYTE();
         ObjString* method = READ_STRING();
+        int argCount = READ_BYTE();
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
         break;
       }
-//< Methods and Initializers not-yet
-//> Superclasses not-yet
-
-      case OP_SUPER: {
-        int argCount = READ_BYTE();
+      
+//< Methods and Initializers interpret-invoke
+//> Superclasses interpret-super-invoke
+      case OP_SUPER_INVOKE: {
         ObjString* method = READ_STRING();
+        int argCount = READ_BYTE();
         ObjClass* superclass = AS_CLASS(pop());
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
@@ -778,7 +786,7 @@ static InterpretResult run() {
         break;
       }
 
-//< Superclasses not-yet
+//< Superclasses interpret-super-invoke
 //> Closures interpret-closure
       case OP_CLOSURE: {
         ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
@@ -837,33 +845,35 @@ static InterpretResult run() {
         break;
 //< Calls and Functions interpret-return
       }
-//> Classes and Instances not-yet
+//> Classes and Instances interpret-class
 
       case OP_CLASS:
         push(OBJ_VAL(newClass(READ_STRING())));
         break;
-//< Classes and Instances not-yet
-//> Superclasses not-yet
+//< Classes and Instances interpret-class
+//> Superclasses interpret-inherit
 
       case OP_INHERIT: {
         Value superclass = peek(1);
+//> inherit-non-class
         if (!IS_CLASS(superclass)) {
           runtimeError("Superclass must be a class.");
           return INTERPRET_RUNTIME_ERROR;
         }
 
+//< inherit-non-class
         ObjClass* subclass = AS_CLASS(peek(0));
         tableAddAll(&AS_CLASS(superclass)->methods, &subclass->methods);
         pop(); // Subclass.
         break;
       }
-//< Superclasses not-yet
-//> Methods and Initializers not-yet
+//< Superclasses interpret-inherit
+//> Methods and Initializers interpret-method
 
       case OP_METHOD:
         defineMethod(READ_STRING());
         break;
-//< Methods and Initializers not-yet
+//< Methods and Initializers interpret-method
     }
   }
 

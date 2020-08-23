@@ -1,6 +1,3 @@
-^title Resolving and Binding
-^part A Tree-Walk Interpreter
-
 > Once in a while you find yourself in an odd situation. You get into it by
 > degrees and in the most natural way but, when you are right in the midst of
 > it, you are suddenly astonished and ask yourself how in the world it all came
@@ -71,15 +68,16 @@ There's a lot to unpack in that:
 
 *   "Preceding" means appearing before *in the program text*. Given:
 
-        :::lox
-        var a = "outer";
-        {
-          print a;
-          var a = "inner";
-        }
+    ```lox
+    var a = "outer";
+    {
+      print a;
+      var a = "inner";
+    }
+    ```
 
     Here, the `a` being printed is the outer one since it appears <span
-    name="hoisting">before</span> the print statement that uses it. In most
+    name="hoisting">before</span> the `print` statement that uses it. In most
     cases, in straight line code, the declaration preceding in *text* will also
     precede the usage in *time*. But that's not *always* true. As we'll see,
     functions may defer a chunk of code such that its *dynamic temporal*
@@ -92,20 +90,22 @@ There's a lot to unpack in that:
     that variable, even if the use appears before the declaration. When you
     write this in JavaScript:
 
-        :::js
-        {
-          console.log(a);
-          var a = "value";
-        }
+    ```js
+    {
+      console.log(a);
+      var a = "value";
+    }
+    ```
 
     It behaves like:
 
-        :::js
-        {
-          var a; // Hoist.
-          console.log(a);
-          a = "value";
-        }
+    ```js
+    {
+      var a; // Hoist.
+      console.log(a);
+      a = "value";
+    }
+    ```
 
     That means that in some cases you can read a variable before its initializer
     has run -- an annoying source of bugs. The alternate `let` syntax for
@@ -116,12 +116,13 @@ There's a lot to unpack in that:
 *   "Innermost" is there because of our good friend shadowing. There may be more
     than one variable with the given name in enclosing scopes, as in:
 
-        :::lox
-        var a = "outer";
-        {
-          var a = "inner";
-          print a;
-        }
+    ```lox
+    var a = "outer";
+    {
+      var a = "inner";
+      print a;
+    }
+    ```
 
     Our rule disambiguates this case by saying the innermost scope wins.
 
@@ -169,9 +170,9 @@ block
 ```
 
 Let me stress that this program never reassigns any variable and only contains a
-single print statement. Yet, somehow, that print statement for a never-assigned
-variable prints two different values at different points in time. We definitely
-broke something somewhere.
+single `print` statement. Yet, somehow, that `print` statement for a
+never-assigned variable prints two different values at different points in time.
+We definitely broke something somewhere.
 
 ### Scopes and mutable environments
 
@@ -248,7 +249,7 @@ actually the same scope. Consider:
 At the first marked line, only `a` is in scope. At the second line, both `a` and
 `b` are. If you define a "scope" to be a set of declarations, then those are
 clearly not the same scope -- they don't contain the same declarations. It's
-like each variable statement <span name="split">splits</span> the block into two
+like each `var` statement <span name="split">splits</span> the block into two
 separate scopes, the scope before the variable is declared and the one after,
 which includes the new variable.
 
@@ -292,7 +293,7 @@ previously-declared variables along with the one new name. Declaring a variable
 would do the implicit "split" where you have an environment before the variable
 is declared and one after:
 
-<img src="image/resolving-and-binding/split.png" alt="Seperate environments before and after the variable is declared." />
+<img src="image/resolving-and-binding/split.png" alt="Separate environments before and after the variable is declared." />
 
 A closure retains a reference to the Environment instance in play when the
 function was declared. Since any later declarations in that block would produce
@@ -382,13 +383,13 @@ execution:
     have no effect.
 
 *   **There is no control flow.** Loops are only visited <span
-    name="fix">once</>. Both branches are visited in if statements. Logic
+    name="fix">once</span>. Both branches are visited in `if` statements. Logic
     operators are not short-circuited.
 
 <aside name="fix">
 
-Variable resolution touches each node once, so its performance is `O(n)` where
-`n` is the number of syntax tree nodes. More sophisticated analyses may have
+Variable resolution touches each node once, so its performance is *O(n)* where
+*n* is the number of syntax tree nodes. More sophisticated analyses may have
 greater complexity, but most are carefully designed to be linear or not far from
 it. It's an embarrassing faux pas if your compiler gets exponentially slower as
 the user's program grows.
@@ -402,7 +403,7 @@ Like everything in Java, our variable resolution pass lives nestled in a class:
 ^code resolver
 
 Since the resolver needs to visit every node in the syntax tree, it will
-implement the handy Visitor abstraction we already have in place. Only a couple
+implement the handy Visitor abstraction we already have in place. Only a few
 of nodes are interesting when it comes to resolving variables:
 
 *   A block statement introduces a new scope for the statements it contains.
@@ -489,16 +490,17 @@ var a = "outer";
 ```
 
 What happens when the initializer for a local variable refers to a variable with
-the same name as what's being declared? We have a couple of options:
+the same name as what's being declared? We have a few options:
 
 *   **Run the initializer, then put the new variable in scope.** That means here
     the new local `a` would be initialized with "outer", the value of the
     *global* one. In other words, the previous declaration desugars to:
 
-        :::lox
-        var temp = a; // Run the initializer.
-        var a;        // Declare the variable.
-        a = temp;     // Initialize it.
+    ```lox
+    var temp = a; // Run the initializer.
+    var a;        // Declare the variable.
+    a = temp;     // Initialize it.
+    ```
 
 *   **Put the new variable in scope, then run the initializer.** This means you
     can observe a variable before it's initialized, so we need to figure out
@@ -506,9 +508,10 @@ the same name as what's being declared? We have a couple of options:
     would be re-initialized to its own implicitly initialized value, `nil`. Now
     the desugaring looks like:
 
-        :::lox
-        var a; // Define the variable.
-        a = a; // Run the initializer.
+    ```lox
+    var a; // Define the variable.
+    a = a; // Run the initializer.
+    ```
 
 *   **Make it an error to reference a variable in its initializer.** Have the
     interpreter fail either at compile time or runtime if an initializer
@@ -534,8 +537,8 @@ steps. The first is *declaring* it:
 
 This adds the variable to the innermost scope so that it shadows any outer one
 and so that we know the variable exists. We mark it as "not ready yet" by
-binding its name to `false` in the scope map. Each value in the scope map means
-"is finished being initialized".
+binding its name to `false` in the scope map. The value associated with a key in
+the scope map represents whether or not that variable has been initialized yet.
 
 Then we resolve the variable's initializer expression itself in the scope where
 the new variable is declared but unavailable. Once the initializer expression is
@@ -568,8 +571,7 @@ for a matching name. If we find the variable, we tell the interpreter it has
 been resolved, passing in the number of scopes between the current innermost
 scope and the scope where the variable was found. So, if the variable was found
 in the current scope, it passes in 0. If it's in the immediately enclosing
-scope,
-1. You get the idea.
+scope, 1. You get the idea.
 
 We'll get to the implementation of that method a little later. For now, let's
 keep on cranking through the other syntax nodes.
@@ -637,7 +639,7 @@ An expression statement contains a single expression to traverse.
 ^code visit-if-stmt
 
 Here, we can see how resolution is different from interpretation. When we
-resolve an if statement, there is no control flow. We resolve the condition and
+resolve an `if` statement, there is no control flow. We resolve the condition and
 *both* branches. Where a dynamic execution only steps into the branch that *is*
 run, a static analysis is conservative -- it analyzes any branch that *could* be
 run. Since either one could be reached at runtime, it resolves both.
@@ -646,7 +648,7 @@ Moving along...
 
 ^code visit-print-stmt
 
-Like expression statements, a print statement contains a single subexpression.
+Like expression statements, a `print` statement contains a single subexpression.
 
 ^code visit-return-stmt
 
@@ -654,7 +656,7 @@ Same deal for return.
 
 ^code visit-while-stmt
 
-As in if statements, with a while statement, we resolve its condition and
+As in `if` statements, with a `while` statement, we resolve its condition and
 resolve the body exactly once.
 
 That covers all the statements. Onto expressions...
@@ -874,7 +876,7 @@ Here's another nasty little script:
 return "at top level";
 ```
 
-This executes a return statement but it's not even inside a function at all.
+This executes a `return` statement but it's not even inside a function at all.
 It's top level code. I don't know what the user *thinks* is going to happen, but
 I don't think we want Lox to allow this.
 
@@ -912,7 +914,7 @@ value:
 ^code restore-current-function (1 before, 1 after)
 
 Now that we can always tell whether or not we're inside a function declaration,
-we check that when resolving a return statement:
+we check that when resolving a `return` statement:
 
 ^code return-from-top (1 before, 1 after)
 
@@ -929,12 +931,12 @@ add *another* check:
 ^code resolution-error (1 before, 2 after)
 
 You could imagine doing lots of other analysis in here. For example, if we added
-break statements to Lox, we probably want to ensure they are only used inside
+`break` statements to Lox, we probably want to ensure they are only used inside
 loops.
 
 We could go farther and report warnings for code that isn't necessarily *wrong*
 but probably isn't useful. For example, many IDEs will warn if you have
-unreachable code after a return statement, or a local variable whose value is
+unreachable code after a `return` statement, or a local variable whose value is
 never read. All of that would be pretty easy to add to our static visiting pass,
 or as <span name="separate">separate</span> passes.
 
@@ -963,11 +965,12 @@ surprising that it took this much work to do it.
 1.  How do other languages you know handle local variables that refer to the
     same name in their initializer, like:
 
-        :::lox
-        var a = "outer";
-        {
-          var a = a;
-        }
+    ```lox
+    var a = "outer";
+    {
+      var a = a;
+    }
+    ```
 
     Is it a runtime error? Compile error? Allowed? Do they treat global
     variables differently? Do you agree with their choices? Justify your answer.

@@ -1,6 +1,3 @@
-^title Strings
-^part A Bytecode Virtual Machine
-
 > "Ah? A small aversion to menial labor?" The doctor cocked an eyebrow.
 > "Understandable, but misplaced. One should treasure those hum-drum
 > tasks that keep the body occupied but leave the mind and heart unfettered."
@@ -657,9 +654,9 @@ languages: the venerable [hash table][]. But that's for the next chapter...
     from a value requires two pointer indirections, which can be bad for
     performance.
 
-    A more efficient solution relies on a technique called "[flexible array
-    members][]". Use that to store the ObjString and its character array in a
-    single contiguous allocation.
+    A more efficient solution relies on a technique called
+    "[flexible array members][]". Use that to store the ObjString and its
+    character array in a single contiguous allocation.
 
 2.  When we create the ObjString for each string literal, we copy the characters
     onto the heap. That way, when the string is later freed, we know it is safe
@@ -720,7 +717,7 @@ There are two facets to a string encoding:
     confusing Unicode *also* has a single code point that looks like "ä".)
 
     If a user accesses the fourth "character" in "naïve", do they expect to get
-    back "v" or "¨"? The former means they are thinking of each code point and
+    back "v" or &ldquo;¨&rdquo;? The former means they are thinking of each code point and
     its combining characters as a single unit -- what Unicode calls an *extended
     grapheme cluster* -- the latter means they are thinking in individual code
     points. Which do your users expect?
@@ -789,7 +786,7 @@ A simpler compromise is to always encode using UTF-8 and only expose a code
 point-based API. For users that want to work with grapheme clusters, let them
 use a third-party library for that. This is less Latin-centric than ASCII but
 not much more complex. You lose fast direct indexing by code point, but you can
-usually live without that or afford to make it `O(n)` instead of `O(1)`.
+usually live without that or afford to make it *O(n)* instead of *O(1)*.
 
 If I were designing a big workhorse language for people writing large
 applications, I'd probably go with the maximal approach. For my little embedded

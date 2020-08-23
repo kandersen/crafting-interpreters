@@ -1,7 +1,5 @@
-^title Introduction
-^part Welcome
-
-> Fairy tales are more than true: not because they tell us that dragons exist, but because they tell us that dragons can be beaten.”
+> Fairy tales are more than true: not because they tell us that dragons exist,
+> but because they tell us that dragons can be beaten.
 >
 > <cite>Neil Gaiman, <em>Coraline</em></cite>
 
@@ -84,8 +82,7 @@ the jargon economy led today to the name "domain-specific languages". These are
 pidgins tailor-built to a specific task. Things like application scripting
 languages, template engines, markup formats, and configuration files.
 
-<span name="little"></span>
-<img src="image/introduction/little-languages.png" alt="A random selection of little languages." />
+<span name="little"></span><img src="image/introduction/little-languages.png" alt="A random selection of little languages." />
 
 <aside name="little">
 
@@ -241,21 +238,25 @@ choice in order to get the code to run.
 Since the book contains literally every line of code needed for the
 implementations, the snippets are quite precise. Also, because I try to keep the
 program in a runnable state even when it's half-implemented, sometimes we add
-temporary code that is replaced in later snippets.
+temporary code that gets replaced in later snippets.
 
 A snippet with all the bells and whistles looks like this:
 
-<div class="codehilite"><pre class="insert-before"><span></span>      <span class="k">default</span><span class="o">:</span>
+<div class="codehilite"><pre class="insert-before">
+      default:                                     
 </pre><div class="source-file"><em>lox/Scanner.java</em><br>
 in <em>scanToken</em>()<br>
 replace 1 line</div>
-<pre class="insert"><span></span>        <span class="k">if</span> <span class="o">(</span><span class="n">isDigit</span><span class="o">(</span><span class="n">c</span><span class="o">))</span> <span class="o">{</span>
-          <span class="n">number</span><span class="o">();</span>
-        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
-          <span class="n">Lox</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="n">line</span><span class="o">,</span> <span class="s">&quot;Unexpected character.&quot;</span><span class="o">);</span>
-        <span class="o">}</span>
-</pre><pre class="insert-after"><span></span>        <span class="k">break</span><span class="o">;</span>
+<pre class="insert">
+        <span class="k">if</span> <span class="o">(</span><span class="i">isDigit</span><span class="o">(</span><span class="i">c</span><span class="o">))</span> <span class="o">{</span>                          
+          <span class="i">number</span><span class="o">();</span>                                
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>                                   
+          <span class="t">Lox</span><span class="o">.</span><span class="i">error</span><span class="o">(</span><span class="i">line</span><span class="o">,</span> <span class="s">&quot;Unexpected character.&quot;</span><span class="o">);</span>
+        <span class="o">}</span>                                          
+</pre><pre class="insert-after">
+        break;                                     
 </pre></div>
+<div class="source-file-narrow"><em>lox/Scanner.java</em>, in <em>scanToken</em>(), replace 1 line</div>
 
 In the center, you have the new code being added in this snippet. It may have a
 few faded out lines above or below to show you where to insert it in the
@@ -284,11 +285,19 @@ Each chapter ends with a few exercises. Unlike textbook problem sets which tend
 to rehash material you already covered, these are to help you learn *more* than
 what's in the chapter. They force you to step off the guided path and explore on
 your own. They will make you research other languages, figure out how to
-implement features or otherwise get you to strike out on your own.
+implement features, or otherwise get you to strike out on your own.
 
-Vanquish them and you'll come away with a broader understanding and possibly a
-few bumps and scrapes. Or skip them if you want to stay inside the comfy
-confines of the tour bus. It's your book.
+<span name="warning">Vanquish</span> them and you'll come away with a broader
+understanding and possibly a few bumps and scrapes. Or skip them if you want to
+stay inside the comfy confines of the tour bus. It's your book.
+
+<aside name="warning">
+
+A word of warning: the challenges often ask you to make changes to the
+interpreter you're building. You'll want to implement those in a copy of your
+code. The later chapters assume your interpreter is in a pristine state.
+
+</aside>
 
 ### Design notes
 
@@ -432,16 +441,16 @@ few thousand lines of code.
 
 ## Challenges
 
-1. There are at least six domain-specific languages used in the [little system I
-   cobbled together][repo] to write and publish this book. What are they?
+1.  There are at least six domain-specific languages used in the [little system
+    I cobbled together][repo] to write and publish this book. What are they?
 
-1. Get a "Hello, world!" program written and running in Java. Set up whatever
-   Makefiles or IDE projects you need to get it working. If you have a debugger,
-   get comfortable with it and step through your program as it runs.
+1.  Get a "Hello, world!" program written and running in Java. Set up whatever
+    Makefiles or IDE projects you need to get it working. If you have a
+    debugger, get comfortable with it and step through your program as it runs.
 
-1. Do the same thing for C. To get some practice with pointers, define a
-   [doubly-linked list][] of heap-allocated strings. Write functions to insert,
-   find, and delete items from it. Test them.
+1.  Do the same thing for C. To get some practice with pointers, define a
+    [doubly-linked list][] of heap-allocated strings. Write functions to insert,
+    find, and delete items from it. Test them.
 
 [repo]: https://github.com/munificent/craftinginterpreters
 [doubly-linked list]: https://en.wikipedia.org/wiki/Doubly_linked_list
@@ -457,23 +466,23 @@ the language it implements. I went through *pages* of candidates before I found
 one that worked. As you'll discover on the first day you start building your own
 language, naming is deviously hard. A good name satisfies a few criteria:
 
-1. **It isn't in use.** You can run into all sorts of trouble, legal and social,
-   if you inadvertently step on someone else's name.
+1.  **It isn't in use.** You can run into all sorts of trouble, legal and
+    social, if you inadvertently step on someone else's name.
 
-2. **It's easy to pronounce.** If things go well, hordes of people will be
-   saying and writing your language's name. Anything longer than a couple of
-   syllables or a handful of letters will annoy them to no end.
+2.  **It's easy to pronounce.** If things go well, hordes of people will be
+    saying and writing your language's name. Anything longer than a couple of
+    syllables or a handful of letters will annoy them to no end.
 
-3. **It's distinct enough to search for.** People will Google your language's
-   name to find docs for it, so you want a word that's rare enough that most
-   results point to your docs. Though, with the amount of AI most search engines
-   are packing today, that's less of an issue. Still, you won't be doing your
-   users any favors if you name your language "for".
+3.  **It's distinct enough to search for.** People will Google your language's
+    name to find docs for it, so you want a word that's rare enough that most
+    results point to your docs. Though, with the amount of AI most search
+    engines are packing today, that's less of an issue. Still, you won't be
+    doing your users any favors if you name your language "for".
 
-4. **It doesn't have negative connotations across a number of cultures.** This
-   is hard to guard for, but it's worth considering. The designer of Nimrod
-   ended up renaming his language to "Nim" because too many people only remember
-   that Bugs Bunny used "Nimrod" as an insult.
+4.  **It doesn't have negative connotations across a number of cultures.** This
+    is hard to guard for, but it's worth considering. The designer of Nimrod
+    ended up renaming his language to "Nim" because too many people only
+    remember that Bugs Bunny used "Nimrod" as an insult.
 
 If your potential name makes it through that gauntlet, keep it. Don't get hung
 up on trying to find an appellation that captures the quintessence of your

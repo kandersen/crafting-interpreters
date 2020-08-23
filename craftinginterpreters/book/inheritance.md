@@ -1,6 +1,3 @@
-^title Inheritance
-^part A Tree-Walk Interpreter
-
 > Once we were blobs in the sea, and then fishes, and then lizards and rats and
 > then monkeys, and hundreds of things in between. This hand was once a fin,
 > this hand once had claws! In my human mouth I have the pointy teeth of a wolf
@@ -96,7 +93,7 @@ class BostonCream < Doughnut {
 To work this into the grammar, we add a new optional clause in our existing
 `classDecl` rule:
 
-```lox
+```ebnf
 classDecl → "class" IDENTIFIER ( "<" IDENTIFIER )?
             "{" function* "}" ;
 ```
@@ -290,7 +287,7 @@ print super; // Syntax error.
 So the new clause we add to the `primary` rule in our grammar includes the
 property access as well:
 
-```lox
+```ebnf
 primary → "true" | "false" | "nil" | "this"
         | NUMBER | STRING | IDENTIFIER | "(" expression ")"
         | "super" "." IDENTIFIER ;
@@ -662,39 +659,41 @@ refreshed and ready, we'll embark on our [next adventure][].
     Take out Lox's current overriding and `super` behavior and replace it with
     BETA's semantics. In short:
 
-    * When calling a method on a class, prefer the method *highest* on the
-      class's inheritance chain.
+    *   When calling a method on a class, prefer the method *highest* on the
+        class's inheritance chain.
 
-    * Inside the body of a method, a call to `inner` looks for a method with the
-      same name in the nearest subclass along the inheritance chain between the
-      class containing the `inner` and the class of `this`. If there is no
-      matching method, the `inner` call does nothing.
+    *   Inside the body of a method, a call to `inner` looks for a method with
+        the same name in the nearest subclass along the inheritance chain
+        between the class containing the `inner` and the class of `this`. If
+        there is no matching method, the `inner` call does nothing.
 
     For example:
 
-        :::lox
-        class Doughnut {
-          cook() {
-            print "Fry until golden brown.";
-            inner();
-            print "Place in a nice box.";
-          }
-        }
+    ```lox
+    class Doughnut {
+      cook() {
+        print "Fry until golden brown.";
+        inner();
+        print "Place in a nice box.";
+      }
+    }
 
-        class BostonCream < Doughnut {
-          cook() {
-            print "Pipe full of custard and coat with chocolate.";
-          }
-        }
+    class BostonCream < Doughnut {
+      cook() {
+        print "Pipe full of custard and coat with chocolate.";
+      }
+    }
 
-        BostonCream().cook();
+    BostonCream().cook();
+    ```
 
     This should print:
 
-        :::text
-        Fry until golden brown.
-        Pipe full of custard and coat with chocolate.
-        Place in a nice box.
+    ```text
+    Fry until golden brown.
+    Pipe full of custard and coat with chocolate.
+    Place in a nice box.
+    ```
 
 1.  In the chapter where I introduced Lox, [I challenged you][challenge] to
     come up with a couple of features you think the language is missing. Now
@@ -702,6 +701,6 @@ refreshed and ready, we'll embark on our [next adventure][].
 
 [challenge]: the-lox-language.html#challenges
 [inner]: http://journal.stuffwithstuff.com/2012/12/19/the-impoliteness-of-overriding-methods/
-[beta]: http://cs.au.dk/~beta/
+[beta]: https://beta.cs.au.dk/
 
 </div>

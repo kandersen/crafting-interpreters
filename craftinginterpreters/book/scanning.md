@@ -1,14 +1,12 @@
-^title Scanning
-^part A Tree-Walk Interpreter
-
 > Take big bites. Anything worth doing is worth overdoing.
 >
 > <cite>Robert A. Heinlein, <em>Time Enough for Love</em></cite>
 
 The first step in any compiler or interpreter is <span
 name="lexing">scanning</span>. The scanner takes in raw source code as a series
-of characters and groups it into meaningful chunks -- the "words" and
-"punctuation" that make up the language's grammar.
+of characters and groups it into a series of chunks we call **tokens**. These
+are the meaningful "words" and "punctuation" that make up the language's
+grammar.
 
 <aside name="lexing">
 
@@ -16,7 +14,7 @@ This task has been variously called "scanning" and "lexing" (short for "lexical
 analysis") over the years. Way back when computers were as big as Winnebagos but
 had less memory than your watch, some people used "scanner" only to refer to the
 piece of code that dealt with reading raw source code characters from disk and
-buffering them in memory. Then "lexing" was the phase after that that did useful
+buffering them in memory. Then "lexing" was the subsequent phase that did useful
 stuff with the characters.
 
 These days, reading a source file into memory is trivial, so it's rarely a
@@ -26,11 +24,11 @@ interchangeable.
 </aside>
 
 Scanning is a good starting point for us too because the code isn't very hard --
-pretty much a switch statement with delusions of grandeur. It will help us warm
-up before we tackle some of the more interesting material later. By the end of
-this chapter, we'll have a full-featured, fast scanner that can take any string
-of Lox source code and produce the tokens that we'll feed into the parser in the
-next chapter.
+pretty much a `switch` statement with delusions of grandeur. It will help us
+warm up before we tackle some of the more interesting material later. By the end
+of this chapter, we'll have a full-featured, fast scanner that can take any
+string of Lox source code and produce the tokens that we'll feed into the parser
+in the next chapter.
 
 ## The Interpreter Framework
 
@@ -42,10 +40,11 @@ starts with a class in Java:
 
 <aside name="64">
 
-For exit codes, I'm using the conventions defined in the UNIX "[sysexits.h][]"
-header. It's the closest thing to a standard I could find.
+For exit codes, I'm using the conventions defined in the UNIX
+["sysexits.h"][sysexits] header. It's the closest thing to a standard I could
+find.
 
-[sysexits.h]: https://www.freebsd.org/cgi/man.cgi?query=sysexits&apropos=0&sektion=0&manpath=FreeBSD+4.3-RELEASE&format=html
+[sysexits]: https://www.freebsd.org/cgi/man.cgi?query=sysexits&apropos=0&sektion=0&manpath=FreeBSD+4.3-RELEASE&format=html
 
 </aside>
 
@@ -79,8 +78,11 @@ Working outwards from the most nested call, you **R**ead a line of input,
 
 ^code prompt
 
-(Escape that infinite loop by hitting Control-C or throwing your machine at the
-wall if you have anger management problems.)
+The `readLine()` function, as the name so helpfully implies, reads a line of
+input from the user on the command line and returns the result. To kill an
+interactive command-line app, you usually type Control-D. Doing so signals an
+"end-of-file" condition to the program. When that happens `readLine()` returns
+`null`, so we check for that to exit the loop.
 
 Both the prompt and the file runner are thin wrappers around this core function:
 
@@ -185,9 +187,9 @@ because it felt over-engineered for the minimal interpreter in this book.
 
 With that in place, our application shell is ready. Once we have a Scanner class
 with a `scanTokens()` method, we can start running it. Before we get to that,
-let's talk about these mysterious "tokens".
+let's get more precise about what tokens are.
 
-## Tokens and Lexemes
+## Lexemes and Tokens
 
 Here's a line of Lox code:
 
@@ -196,8 +198,8 @@ var language = "lox";
 ```
 
 Here, `var` is the keyword for declaring a variable. That three-character
-sequence 'v' 'a' 'r' *means* something. If we yank three letters out of the
-middle of `language`, like `gua`, those don't mean anything on their own.
+sequence "v-a-r" means something. But if we yank three letters out of the
+middle of `language`, like "g-u-a", those don't mean anything on their own.
 
 That's what lexical analysis is about. Our job is to scan through the list of
 characters and group them together into the smallest sequences that still
@@ -207,15 +209,16 @@ In that example line of code, the lexemes are:
 <img src="image/scanning/lexemes.png" alt="'var', 'language', '=', 'lox', ';'" />
 
 The lexemes are only the raw substrings of the source code. However, in the
-process of recognizing them, we also stumble upon some other useful information.
-Things like:
+process of grouping character sequences into lexemes, we also stumble upon some
+other useful information. When we take the lexeme and bundle it together with
+that other data, the result is a token. It includes useful stuff like:
 
-### Lexeme type
+### Token type
 
 Keywords are part of the shape of the language's grammar, so the parser often
 has code like, "If the next token is `while` then do..." That means the parser
-wants to know not just that it has a lexeme for some word, but that it has a
-*reserved* word, and *which* keyword it is.
+wants to know not just that it has a lexeme for some identifier, but that it has
+a *reserved* word, and *which* keyword it is.
 
 The <span name="ugly">parser</span> could categorize tokens from the raw lexeme
 by comparing the strings, but that's slow and kind of ugly. Instead, at the
@@ -262,12 +265,12 @@ better.
 
 </aside>
 
-We take all of this and wrap it up in a class:
+We take all of this data and wrap it in a class:
 
 ^code token-class
 
-That's a **token**: a bundle containing the raw lexeme along with the other
-things the scanner learned about it.
+Now we have an object with enough structure to be useful for all of the later
+phases of the interpreter.
 
 ## Regular Languages and Expressions
 
@@ -414,9 +417,8 @@ other overload to handle tokens with literal values later.)
 Before we get too far in, let's take a moment to think about errors at the
 lexical level. What happens if a user throws a source file containing some
 characters Lox doesn't use, like `@#^` at our interpreter? Right now, those
-characters get silently added to the next token. That ain't right.
-
-Let's fix that:
+characters get silently discarded. They aren't used by the Lox language, but
+that doesn't mean the interpreter can pretend they aren't there:
 
 ^code char-error (1 before, 1 after)
 
@@ -445,7 +447,7 @@ user experience.
 
 We have single-character lexemes covered, but that doesn't cover all of Lox's
 operators. What about `!`? It's a single character, right? Sometimes, yes, but
-not when it's followed by a `=`. In that case, it should be a `!=` lexeme.
+not when it's followed by an `=`. In that case, it should be a `!=` lexeme.
 Likewise, `<`, `>`, and `=` can all be followed by `=`.
 
 For those, we need to look at the second character:
@@ -780,27 +782,30 @@ detect, but there are a handful of nasty ones:
 
 * A return value on the next line:
 
-        :::js
-        return
-        "value"
+    ```js
+    return
+    "value"
+    ```
 
-    Is "value" the value being returned, or do we have a return statement with
+    Is "value" the value being returned, or do we have a `return` statement with
     no value followed by an expression statement containing a string literal?
 
 * A parenthesized expression on the next line:
 
-        :::js
-        func
-        (parenthesized)
+    ```js
+    func
+    (parenthesized)
+    ```
 
     Is this a call to `func(parenthesized)`, or two expression statements, one
     for `func` and one for a parenthesized expression?
 
 * A `-` on the next line:
 
-        :::js
-        first
-        -second
+    ```js
+    first
+    -second
+    ```
 
     Is this `first - second` -- an infix subtraction -- or two expression
     statements, one for `first` and one to negate `second`?
@@ -814,12 +819,13 @@ are separators. Here are a couple:
     that no separator between statements is needed at all in most cases. This is
     perfectly legit:
 
-        :::lua
-        a = 1 b = 2
+    ```lua
+    a = 1 b = 2
+    ```
 
     Lua avoids the `return` problem by requiring a `return` statement to be the
     very last statement in a block. If there is a value after `return` before
-    the keyword `end`, it *must* be for the return. For the other two cases,
+    the keyword `end`, it *must* be for the `return`. For the other two cases,
     they allow an explicit `;` and expect users to use that. In practice, that
     almost never happens because there's no point in a parenthesized or unary
     negation expression statement.
@@ -843,10 +849,11 @@ are separators. Here are a couple:
 
     For example, in JavaScript:
 
-        :::js
-        console.log(function() {
-          statement();
-        });
+    ```js
+    console.log(function() {
+      statement();
+    });
+    ```
 
     Here, the `console.log()` *expression* contains a function literal which
     in turn contains the *statement* `statement();`.
@@ -869,10 +876,10 @@ And now you know why Python's `lambda` only allows a single expression body.
     previous newline into a semicolon to get something grammatically valid.
 
     This design note would turn into a design diatribe if I went into complete
-    detail about how that even *works*, much less all the various ways that that
-    is a bad idea. It's a mess. JavaScript is the only language I know where
-    many style guides demand explicit semicolons after every statement even
-    though the language theoretically lets you elide them.
+    detail about how that even *works*, much less all the various ways that
+    JavaScript's "solution" is a bad idea. It's a mess. JavaScript is the only
+    language I know where many style guides demand explicit semicolons after
+    every statement even though the language theoretically lets you elide them.
 
 If you're designing a new language, you almost surely *should* avoid an explicit
 statement terminator. Programmers are creatures of fashion like other humans and

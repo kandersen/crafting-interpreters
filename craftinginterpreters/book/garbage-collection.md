@@ -1,6 +1,3 @@
-^title Garbage Collection
-^part A Bytecode Virtual Machine
-
 > I wanna, I wanna,<br>
 > I wanna, I wanna,<br>
 > I wanna be trash.<br>
@@ -98,9 +95,9 @@ var global = "string";
 ```
 
 Pause the program right after the two strings have been concatenated but before
-the print statement has executed. The VM can reach `"string"` by looking through
-the global variable table and finding the entry for `global`. It can find
-`"another"` by walking the value stack and hitting the slot for the local
+the `print` statement has executed. The VM can reach `"string"` by looking
+through the global variable table and finding the entry for `global`. It can
+find `"another"` by walking the value stack and hitting the slot for the local
 variable `local`. It can even find the concatenated string `"stringanother"`
 since that temporary value is also sitting on the VM's stack at the point when
 we paused our program.
@@ -392,8 +389,8 @@ We implement that in the "table" module:
 
 ^code mark-table
 
-Pretty straightforward. We walk the entry array and mark every key string and
-value, uh, value.
+Pretty straightforward. We walk the entry array. For each one, we mark its value.
+We also mark the key strings for each entry since the GC manages those strings too.
 
 ### Less obvious roots
 
@@ -431,7 +428,7 @@ It's declared here:
 
 Which means the "memory" module needs an include:
 
-^code memory-include-compiler (1 before, 1 after)
+^code memory-include-compiler (2 before, 1 after)
 
 And the definition is over in the "compiler" module:
 
@@ -503,7 +500,7 @@ object is in and what work is left to do.
 
 Advanced garbage collection algorithms often add other colors to the
 abstraction. I've seen multiple shades of gray and even purple in some designs.
-My puce-chartreuse-fuschia-malachite collector paper was, alas, not accepted for
+My puce-chartreuse-fuchsia-malachite collector paper was, alas, not accepted for
 publication.
 
 </aside>
@@ -547,10 +544,18 @@ by the wavefront and stay white.
 
 <img src="image/garbage-collection/tricolor-trace.png" class="wide" alt="A gray wavefront working through a graph of nodes." />
 
-At the end, you're left with a sea of reached black objects sprinkled with
-islands of white objects that can be swept up and freed. Once the unreachable
-objects are freed, the remaining objects -- all black -- are reset to white for
-the next garbage collection cycle.
+At the <span name="invariant">end</span>, you're left with a sea of reached
+black objects sprinkled with islands of white objects that can be swept up and
+freed. Once the unreachable objects are freed, the remaining objects -- all
+black -- are reset to white for the next garbage collection cycle.
+
+<aside name="invariant">
+
+Note that at every step of this process no black node ever points to a white
+node. This property is called the **tri-color invariant**. The traversal process
+maintains this invariant to ensure that no reachable object is ever collected.
+
+</aside>
 
 ### A worklist for gray objects
 
@@ -593,7 +598,7 @@ OK, now when we're done marking the roots we have both set a bunch of fields
 and filled our work list with objects to chew through. It's time for the next
 phase:
 
-^code call-trace-references (1 before, 1 after)
+^code call-trace-references (1 before, 2 after)
 
 Here's the implementation:
 
@@ -690,20 +695,20 @@ either black or white. The black objects are reachable and we want to hang on to
 them. Anything still white never got touched by the trace and is thus garbage.
 All that's left is to reclaim them:
 
-^code call-sweep (1 before, 1 after)
+^code call-sweep (1 before, 2 after)
 
 All of the logic lives in one function:
 
 ^code sweep
 
 I know that's kind of a lot of code and pointer shenanigans but there isn't much
-to it once you work through it. The outer while loop walks the linked list of
+to it once you work through it. The outer `while` loop walks the linked list of
 every object in the heap, checking their mark bits. If an object is unmarked
 (white), we unlink it from the list and free it using the `freeObject()`
 function we already wrote.
 
 Most of the other code in here deals with the fact that removing a node from a
-singly-linked list is cumbersome. We have to continously remember the previous
+singly-linked list is cumbersome. We have to continuously remember the previous
 node so we can unlink its next pointer, and we have to handle the edge case
 where we are freeing the first node. But, otherwise, it's pretty simple --
 delete every node in a linked list that doesn't have a bit set in it.
@@ -979,7 +984,7 @@ frequently in order to avoid sacrificing throughput by re-traversing the growing
 pile of live objects. As the amount of live memory goes down, we collect more
 frequently so that we don't lose too much latency by waiting too long.
 
-The implementation requies two new bookkeeping fields in the VM:
+The implementation requires two new bookkeeping fields in the VM:
 
 ^code vm-fields (1 before, 2 after)
 
@@ -1166,7 +1171,7 @@ result:
 
 ^code concatenate-pop (1 before, 1 after)
 
-Those were all pretty easy, especially because I *showed* you were the fix was.
+Those were all pretty easy, especially because I *showed* you where the fix was.
 In practice, *finding* them is the hard part. All you see is an object that
 *should* be there but isn't. It's not like other bugs where you're looking for
 the code that *causes* some problem. You're looking for the *absence* of code

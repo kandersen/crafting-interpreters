@@ -75,7 +75,6 @@ class Parser {
   }
 //< Statements and State declaration
 //> Classes parse-class-declaration
-
   private Stmt classDeclaration() {
     Token name = consume(IDENTIFIER, "Expect class name.");
 //> Inheritance parse-superclass
@@ -431,7 +430,7 @@ class Parser {
   private Expr call() {
     Expr expr = primary();
 
-    while (true) {
+    while (true) { // [while-true]
       if (match(LEFT_PAREN)) {
         expr = finishCall(expr);
 //> Classes parse-property

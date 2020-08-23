@@ -1,6 +1,3 @@
-^title Global Variables
-^part A Bytecode Virtual Machine
-
 > If only there could be an invention that bottled up a memory, like scent. And
 > it never faded, and it never got stale. And then, when one wanted it, the
 > bottle could be uncorked, and it would be like living the moment all over
@@ -36,8 +33,8 @@ the same language feature will have multiple implementation techniques, each
 tuned for different use patterns. For example, JavaScript VMs often have a
 faster representation for objects that are used more like instances of classes
 compared to other objects whose set of properties is more freely modified. C and
-C++ compilers usually have a variety of ways to compile switch statements based
-on the number of cases and how densely packed the case values are.
+C++ compilers usually have a variety of ways to compile `switch` statements
+based on the number of cases and how densely packed the case values are.
 
 </aside>
 
@@ -86,7 +83,7 @@ So, like other languages, we prohibit it syntactically by having a separate
 grammar rule for the subset of statements that *are* allowed inside a control
 flow body:
 
-```lox
+```ebnf
 statement      → exprStmt
                | forStmt
                | ifStmt
@@ -98,7 +95,7 @@ statement      → exprStmt
 
 Then we use a separate rule for the top level of a script and inside a block:
 
-```lox
+```ebnf
 declaration    → classDecl
                | funDecl
                | varDecl
@@ -122,7 +119,7 @@ precedence" non-declaring statement is allowed.
 In this chapter, we'll only cover a couple of statements and one
 declaration:
 
-```lox
+```ebnf
 statement      → exprStmt
                | printStmt ;
 
@@ -153,9 +150,9 @@ We may as well write out the forward declarations now:
 
 ### Print statements
 
-We have two statement types to support. Let's start with print statements, which
-begin, naturally enough, with a `print` token. We detect that using this helper
-function:
+We have two statement types to support. Let's start with `print` statements,
+which begin, naturally enough, with a `print` token. We detect that using this
+helper function:
 
 ^code match
 
@@ -191,10 +188,9 @@ using:
 
 ^code print-statement
 
-A print statement evaluates an expression and prints the result, so we first
+A `print` statement evaluates an expression and prints the result, so we first
 parse and compile that expression. The grammar expects a semicolon after that,
-so we consume it. Finally, we emit a new instruction to print the
-result:
+so we consume it. Finally, we emit a new instruction to print the result:
 
 ^code op-print (1 before, 1 after)
 
@@ -578,16 +574,17 @@ The problem is not as dire as it might seem, though. Look at how the parser sees
 
 <img src="image/global-variables/setter.png" alt="The 'menu.brunch(sunday).beverage = &quot;mimosa&quot;' statement, showing that 'menu.brunch(sunday)' is an expression." />
 
-Even though the `.beverage` part must be compiled as a setter, everything to the
-left of it is an expression, with the normal expression semantics. The
-`menu.brunch(sunday)` part can be compiled and executed as usual.
+Even though the `.beverage` part must not be compiled as a get expression,
+everything to the left of the `.` is an expression, with the normal expression
+semantics. The `menu.brunch(sunday)` part can be compiled and executed as usual.
 
 Fortunately for us, the only semantic differences on the left side of an
 assignment appear at the very right-most end of the tokens, immediately
 preceding the `=`. Even though the receiver of a setter may be an arbitrarily
-long expression, the setter itself is only a `.` followed by an identifier,
-which is right before the `=`. We don't need much lookahead to realize
-`.beverage` should be compiled as a setter and not a getter.
+long expression, the part whose behavior differs from a get expression is only
+the trailing identifier, which is right before the `=`. We don't need much
+lookahead to realize `beverage` should be compiled as a set expression and not a
+getter.
 
 Variables are even easier since they are just a single bare identifier before an
 `=`. The idea then is that right *before* compiling an expression that can also
@@ -806,12 +803,13 @@ It's starting to look like real code for an actual language!
     But when a user runs a Lox *script*, the compiler has access to the full
     text of the entire program before any code is run. Consider this program:
 
-        :::lox
-        fun useVar() {
-          print oops;
-        }
+    ```lox
+    fun useVar() {
+      print oops;
+    }
 
-        var ooops = "too many o's!";
+    var ooops = "too many o's!";
+    ```
 
     Here, we can tell statically that `oops` will not be defined because there
     is *no* declaration of that global anywhere in the program. Note that

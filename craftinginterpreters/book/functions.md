@@ -1,6 +1,3 @@
-^title Functions
-^part A Tree-Walk Interpreter
-
 > And that is also the way the human mind works -- by the compounding of old
 > ideas into new structures that become new ideas that can themselves be used in
 > compounds, and round and round endlessly, growing ever more remote from the
@@ -59,7 +56,7 @@ new `call` rule:
 
 <span name="curry"></span>
 
-```lox
+```ebnf
 unary → ( "!" | "-" ) unary | call ;
 call  → primary ( "(" arguments? ")" )* ;
 ```
@@ -85,7 +82,7 @@ the language syntax so it's not as cumbersome as it would be here.
 
 </aside>
 
-```lox
+```ebnf
 arguments → expression ( "," expression )* ;
 ```
 
@@ -132,9 +129,13 @@ time we see a `(`, we call `finishCall()` to parse the call expression using the
 previously parsed expression as the callee. The returned expression becomes the
 new `expr` and we loop to see if the result is itself called.
 
-The `while (true)` and the explicit `break` look dumb. It would be simpler as
-`while (match(LEFT_PAREN))`. It will make sense later when we add more code to
-this function to handle properties on objects.
+<aside name="while-true">
+
+This code would be simpler as `while (match(LEFT_PAREN))` instead of the silly
+`while (true)` and `break`. Don't worry, it will make sense when we expand
+parser later to handle properties on objects.
+
+</aside>
 
 The code to parse the argument list is in this helper:
 
@@ -385,11 +386,11 @@ tell time. There's no way to do that now -- you can't implement a useful clock
 
 So we'll add `clock()`, a native function that returns the number of seconds
 that have passed since some fixed point in time. The difference between two
-successive invocations tell you how much time elapsed between the two calls.
-This function is defined in the global scope, so lets ensure the interpreter has
-access to that:
+successive invocations tells you how much time elapsed between the two calls.
+This function is defined in the global scope, so let's ensure the interpreter
+has access to that:
 
-^code global-environment (1 before, 1 after)
+^code global-environment (1 before, 2 after)
 
 The `environment` field in the interpreter changes as we enter and exit local
 scopes. It tracks the *current* environment. This new `globals` field holds a
@@ -398,7 +399,7 @@ fixed reference to the outermost global environment.
 When we instantiate an Interpreter, we stuff the native function in that global
 scope:
 
-^code interpreter-constructor
+^code interpreter-constructor (2 before, 1 after)
 
 This defines a <span name="lisp-1">variable</span> named "clock". Its value is a
 Java anonymous class that implements LoxCallable. The `clock()` function takes
@@ -453,7 +454,7 @@ nice syntax for them.
 
 </aside>
 
-```lox
+```ebnf
 declaration → funDecl
             | varDecl
             | statement ;
@@ -461,7 +462,7 @@ declaration → funDecl
 
 That references this new rule:
 
-```lox
+```ebnf
 funDecl  → "fun" function ;
 function → IDENTIFIER "(" parameters? ")" block ;
 ```
@@ -482,7 +483,7 @@ The function itself is a name followed by the parenthesized parameter list and
 the body. The body is always a braced block, using the same grammar rule that
 block statements use. The parameter list uses this rule:
 
-```lox
+```ebnf
 parameters → IDENTIFIER ( "," IDENTIFIER )* ;
 ```
 
@@ -525,9 +526,9 @@ Next, we parse the parameter list and the pair of parentheses wrapped around it:
 ^code parse-parameters (1 before, 1 after)
 
 This is like the code for handling arguments in a call, except not split out
-into a helper method. The outer if statement handles the zero parameter case,
-and the inner while loop parses parameters as long as we find commas to separate
-them. The result is the list of tokens for each parameter's name.
+into a helper method. The outer `if` statement handles the zero parameter case,
+and the inner `while` loop parses parameters as long as we find commas to
+separate them. The result is the list of tokens for each parameter's name.
 
 Just like we do with arguments at function calls, we validate at parse time
 that you don't exceed the maximum number of parameters a function is allowed to
@@ -705,7 +706,7 @@ get results back <span name="hotel">*out*</span>. If Lox was an
 expression-oriented language like Ruby or Scheme, the body would be an
 expression whose value is implicitly the function's result. But in Lox, the body
 of a function is a list of statements which don't produce values, so we need
-dedicated syntax for emitting a result. In other words, return statements. I'm
+dedicated syntax for emitting a result. In other words, `return` statements. I'm
 sure you can guess the grammar already:
 
 <aside name="hotel">
@@ -714,7 +715,7 @@ The Hotel California of data.
 
 </aside>
 
-```lox
+```ebnf
 statement  → exprStmt
            | forStmt
            | ifStmt
@@ -727,14 +728,14 @@ returnStmt → "return" expression? ";" ;
 ```
 
 We've got one more -- the final, in fact -- production under the venerable
-`statement` rule. A return statement is the `return` keyword followed by an
+`statement` rule. A `return` statement is the `return` keyword followed by an
 optional expression and terminated with a semicolon.
 
 The return value is optional to support exiting early from a function that
 doesn't return a useful value. In statically-typed languages, "void" functions
 don't return a value and non-void ones do. Since Lox is dynamically typed, there
 are no true void functions. The compiler has no way of preventing you from
-taking the result value of a call to a function that doesn't contain a return
+taking the result value of a call to a function that doesn't contain a `return`
 statement:
 
 ```lox
@@ -747,9 +748,9 @@ print result; // ?
 ```
 
 This means every Lox function must return *something*, even if it contains no
-return statements at all. We use `nil` for this, which is why LoxFunction's
+`return` statements at all. We use `nil` for this, which is why LoxFunction's
 implementation of `call()` returns `null` at the end. In that same vein, if you
-omit the value in a return statement, we simply treat it as:
+omit the value in a `return` statement, we simply treat it as:
 
 ```lox
 return nil;
@@ -785,14 +786,14 @@ that, we know there must not be a value.
 
 ### Returning from calls
 
-Interpreting a return statement is tricky. You can return from anywhere within
+Interpreting a `return` statement is tricky. You can return from anywhere within
 the body of a function, even deeply nested inside other statements. When the
 return is executed, the interpreter needs to jump all the way out of whatever
 context it's currently in and cause the function call to complete, like some
 kind of jacked up control flow construct.
 
 For example, say we're running this program and we're about to execute the
-return statement:
+`return` statement:
 
 ```lox
 fun count(n) {
@@ -820,9 +821,9 @@ Interpreter.visitCallExpr()
 ```
 
 We need to get from the top of the stack all the way back to `call()`. I don't
-know about you, but to me that sounds like exceptions. When we execute a return
-statement, we'll use an exception to unwind the interpreter past the visit
-methods of all of the containing statements back to the code that began
+know about you, but to me that sounds like exceptions. When we execute a
+`return` statement, we'll use an exception to unwind the interpreter past the
+visit methods of all of the containing statements back to the code that began
 executing the body.
 
 The visit method for our new AST node looks like this:
@@ -858,8 +859,8 @@ We want this to unwind all the way to where the function call began, the
 We wrap the call to `executeBlock()` in a try-catch block. When it catches a
 return exception, it pulls out the value and makes that the return value from
 `call()`. If it never catches one of these exceptions, it means the function
-reached the end of its body without hitting a return statement. In that case, it
-implicitly returns `nil`.
+reached the end of its body without hitting a `return` statement. In that case,
+it implicitly returns `nil`.
 
 Let's try it out. We finally have enough power to support this classic
 example -- a recursive function to calculate Fibonacci numbers:
@@ -867,13 +868,13 @@ example -- a recursive function to calculate Fibonacci numbers:
 <span name="slow"></span>
 
 ```lox
-fun fibonacci(n) {
+fun fib(n) {
   if (n <= 1) return n;
-  return fibonacci(n - 2) + fibonacci(n - 1);
+  return fib(n - 2) + fib(n - 1);
 }
 
 for (var i = 0; i < 20; i = i + 1) {
-  print fibonacci(i);
+  print fib(i);
 }
 ```
 
@@ -906,7 +907,7 @@ Right now, it is always `globals`, the top level global environment. That way,
 if an identifier isn't defined inside the function body itself, the interpreter
 can look outside the function in the global scope to find it. In the Fibonacci
 example, that's how the interpreter is able to look up the recursive call to
-`fibonacci` inside the function's own body -- `fibonacci` is a global variable.
+`fib` inside the function's own body -- `fib` is a global variable.
 
 But recall that in Lox, function declarations are allowed *anywhere* a name can
 be bound. That includes the top level of a Lox script, but also the inside of
@@ -1032,32 +1033,35 @@ scope and close that hole.
     without binding it to a name. Add anonymous function syntax to Lox so that
     this works:
 
-        :::lox
-        fun thrice(fn) {
-          for (var i = 1; i <= 3; i = i + 1) {
-            fn(i);
-          }
-        }
+    ```lox
+    fun thrice(fn) {
+      for (var i = 1; i <= 3; i = i + 1) {
+        fn(i);
+      }
+    }
 
-        thrice(fun (a) {
-          print a;
-        });
-        // "1".
-        // "2".
-        // "3".
+    thrice(fun (a) {
+      print a;
+    });
+    // "1".
+    // "2".
+    // "3".
+    ```
 
     How do you handle the tricky case of an anonymous function expression
     occurring in an expression statement:
 
-        :::lox
-        fun () {};
+    ```lox
+    fun () {};
+    ```
 
 1.  Is this program valid?
 
-        :::lox
-        fun scope(a) {
-          var a = "local";
-        }
+    ```lox
+    fun scope(a) {
+      var a = "local";
+    }
+    ```
 
     In other words, are a function's parameters in the *same* scope as its local
     variables, or in an outer scope? What does Lox do? What about other

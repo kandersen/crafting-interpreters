@@ -1,6 +1,3 @@
-^title Appendix I
-^part Backmatter
-
 Here is a complete grammar for Lox. The chapters that introduce each part of the
 language include the grammar rules there, but this collects them all into one
 place.
@@ -11,7 +8,7 @@ The syntactic grammar is used to parse the linear sequence of tokens into the
 nested syntax tree structure. It starts with the first rule that matches an
 entire Lox program (or a single REPL entry):
 
-```lox
+```ebnf
 program        → declaration* EOF ;
 ```
 
@@ -20,7 +17,7 @@ program        → declaration* EOF ;
 A program is a series of declarations, which are the statements that bind new
 identifiers or any of the other statement types:
 
-```lox
+```ebnf
 declaration    → classDecl
                | funDecl
                | varDecl
@@ -37,7 +34,7 @@ varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 The remaining statement rules produce side effects, but do not introduce
 bindings:
 
-```lox
+```ebnf
 statement      → exprStmt
                | forStmt
                | ifStmt
@@ -67,11 +64,11 @@ different levels of precedence. Some grammars for languages do not directly
 encode the precedence relationships and specify that elsewhere. Here, we use a
 separate rule for each precedence level to make it explicit:
 
-```lox
+```ebnf
 expression     → assignment ;
 
 assignment     → ( call "." )? IDENTIFIER "=" assignment
-               | logic_or;
+               | logic_or ;
 
 logic_or       → logic_and ( "or" logic_and )* ;
 logic_and      → equality ( "and" equality )* ;
@@ -92,7 +89,7 @@ primary        → "true" | "false" | "nil" | "this"
 In order to keep the above rules a little cleaner, some of the grammar is
 split out into a few reused helper rules:
 
-```lox
+```ebnf
 function       → IDENTIFIER "(" parameters? ")" block ;
 parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
 arguments      → expression ( "," expression )* ;
@@ -107,10 +104,10 @@ that there are no recursive rules.
 [context free]: https://en.wikipedia.org/wiki/Context-free_grammar
 [regular]: https://en.wikipedia.org/wiki/Regular_grammar
 
-```lox
+```ebnf
 NUMBER         → DIGIT+ ( "." DIGIT+ )? ;
-STRING         → '"' <any char except '"'>* '"' ;
+STRING         → "\"" <any char except "\"">* "\"" ;
 IDENTIFIER     → ALPHA ( ALPHA | DIGIT )* ;
-ALPHA          → 'a' ... 'z' | 'A' ... 'Z' | '_' ;
-DIGIT          → '0' ... '9' ;
+ALPHA          → "a" ... "z" | "A" ... "Z" | "_" ;
+DIGIT          → "0" ... "9" ;
 ```

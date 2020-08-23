@@ -1,6 +1,3 @@
-^title Statements and State
-^part A Tree-Walk Interpreter
-
 > All my life, my heart has yearned for a thing I cannot name.
 > <cite>Andre Breton, <em>Mad Love</em></cite>
 
@@ -59,7 +56,7 @@ from expressions. We start with the two simplest kinds:
 
     </aside>
 
-2.  A **print statement** evaluates an expression and displays the result to the
+2.  A **`print` statement** evaluates an expression and displays the result to the
     user. I admit it's weird to bake print right into the language instead of
     making it a library function. Doing so is a concession to the fact that
     we're building this interpreter one chapter at a time and want to be able to
@@ -71,8 +68,8 @@ from expressions. We start with the two simplest kinds:
     <aside name="print">
 
     I will note with only a modicum of defensiveness that BASIC and Python
-    have dedicated print statements and they are real languages. Granted,
-    Python did remove their print statement in 3.0...
+    have dedicated `print` statements and they are real languages. Granted,
+    Python did remove their `print` statement in 3.0...
 
     </aside>
 
@@ -81,7 +78,7 @@ to parse an entire Lox script. Since Lox is an imperative, dynamically-typed
 language, the "top level" of a script is simply a list of statements. The new
 rules are:
 
-```lox
+```ebnf
 program   → statement* EOF ;
 
 statement → exprStmt
@@ -106,7 +103,7 @@ syntax trees.
 
 There is no place in the grammar where both an expression and a statement is
 allowed. The operands of, say, `+` are always expressions, never statements. The
-body of a while loop is always a statement.
+body of a `while` loop is always a statement.
 
 Since the two syntaxes are disjoint, we don't need a single base class that they
 all inherit from. Splitting them into separate class hierarchies enables the
@@ -139,7 +136,7 @@ The generated code for the new nodes is in [Appendix II][appendix-ii]: [Expressi
 </aside>
 
 Run that script and behold your new "Stmt.java" file with the syntax tree
-classes we need for expression and print statements. Don't forget to add it to
+classes we need for expression and `print` statements. Don't forget to add it to
 your IDE project or makefile or whatever.
 
 ### Parsing statements
@@ -171,7 +168,7 @@ A program is a list of statements, and we parse one of those statements using:
 
 It's a little bare bones, but we'll fill it in with more statement types later.
 It determines which specific statement rule is matched by looking at the current
-token. A `print` token means it's obviously a print statement.
+token. A `print` token means it's obviously a `print` statement.
 
 If the next token doesn't look like any known kind of statement, we assume it
 must be an expression statement. That's the typical final fallthrough case when
@@ -195,12 +192,12 @@ is in when a method is called. For Lox's little parser, I didn't bother.
 
 </aside>
 
-If we didn't match a print statement, we must have one of these:
+If we didn't match a `print` statement, we must have one of these:
 
 ^code parse-expression-statement
 
-Similar to print, it parses an expression followed by a semicolon. It wraps that
-Expr in a Stmt and returns it.
+Similar to the previous method, it parses an expression followed by a semicolon.
+It wraps that Expr in a Stmt and returns it.
 
 ### Executing statements
 
@@ -238,7 +235,7 @@ discards the value (appropriately enough by using a Java expression statement to
 call `evaluate()`). Then we return `null`. Java requires that to satisfy the
 special capitalized Void return type. Weird, but what can you do?
 
-The print statement's visit method isn't much different:
+The `print` statement's visit method isn't much different:
 
 ^code visit-print
 
@@ -294,9 +291,9 @@ constructs.
 
 1.  A **variable declaration** statement brings a new variable into the world:
 
-        :::lox
-        var beverage = "espresso";
-
+    ```lox
+    var beverage = "espresso";
+    ```
 
     This creates a new binding that associates a name (here "beverage") with a
     value (here, the string `"espresso"`).
@@ -305,8 +302,9 @@ constructs.
     identifier "beverage" is used as an expression, it looks up the value bound
     to that name and returns it:
 
-        :::lox
-        print beverage; // "espresso".
+    ```lox
+    print beverage; // "espresso".
+    ```
 
 Later, we'll add assignment and block scope, but that's enough to get started.
 
@@ -332,9 +330,9 @@ from other statements, and we're going to split the statement grammar in two to
 handle them. That's because the grammar restricts where some kinds of statements
 are allowed.
 
-The clauses in control flow statements -- think the "then" and "else" parts of
-an if statement or the body of a while -- are each a single statement. But that
-statement is not allowed to be one that declares a name. This is OK:
+The clauses in control flow statements -- think the then and else branches of
+an `if` statement or the body of a `while` -- are each a single statement. But
+that statement is not allowed to be one that declares a name. This is OK:
 
 ```lox
 if (monday) print "Ugh, already?";
@@ -347,8 +345,9 @@ if (monday) var beverage = "espresso";
 ```
 
 We *could* allow the latter, but it's confusing. What is the scope of that
-`beverage` variable? Does it persist after the if statement? If so, what is its
-value on days other than Monday? Does the variable exist at all on those days?
+`beverage` variable? Does it persist after the `if` statement? If so, what is
+its value on days other than Monday? Does the variable exist at all on those
+days?
 
 Code like this is weird, so C, Java, and friends all disallow it. It's as if
 there are two levels of <span name="brace">"precedence"</span> for statements.
@@ -361,7 +360,7 @@ the "higher" precedence statements that don't declare names.
 In this analogy, a block statement, where you stuff a series of statements
 inside a pair of curly braces, works sort of like parentheses for expressions. A
 block statement is itself in the "higher" precedence level and can be used
-anywhere, like in the clauses of an if statement. But the statements it
+anywhere, like in the clauses of an `if` statement. But the statements it
 *contains* can be lower precedence. You're allowed to declare variables and
 other names inside the block. The curlies let you escape back into the full
 statement grammar from a place where only some statements are allowed.
@@ -371,7 +370,7 @@ statement grammar from a place where only some statements are allowed.
 To accommodate the distinction, we add another rule for kinds of statements that
 declare names:
 
-```lox
+```ebnf
 program     → declaration* EOF ;
 
 declaration → varDecl
@@ -389,7 +388,7 @@ stuff at the top level of a script, so `program` routes to the new rule.
 
 The rule for declaring a variable looks like:
 
-```lox
+```ebnf
 varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
 ```
 
@@ -400,7 +399,7 @@ semicolon.
 
 To access a variable, we define a new kind of primary expression:
 
-```lox
+```ebnf
 primary → "true" | "false" | "nil"
         | NUMBER | STRING
         | "(" expression ")"
@@ -760,7 +759,7 @@ In some other languages, like Pascal, Python, and Go, assignment is a statement.
 
 </aside>
 
-```lox
+```ebnf
 expression → assignment ;
 assignment → IDENTIFIER "=" assignment
            | equality ;
@@ -877,7 +876,10 @@ Consider a complex field assignment like:
 
 You can still use this trick even if there are assignment targets that are not
 valid expressions. Define a **cover grammar**, a looser grammar that accepts
-both all of the valid expression *and* assignment target syntaxes. When you hit a `=`, report an error if the left-hand side isn't within the valid assignment target grammar. Conversely, if you *don't* hit a `=`, report an error if the left-hand side isn't a valid *expression*.
+both all of the valid expression *and* assignment target syntaxes. When you hit
+an `=`, report an error if the left-hand side isn't within the valid assignment
+target grammar. Conversely, if you *don't* hit an `=`, report an error if the
+left-hand side isn't a valid *expression*.
 
 </aside>
 
@@ -1193,7 +1195,7 @@ recursively.
 Now that Environments nest, we're ready to add blocks to the language. Behold
 the grammar:
 
-```lox
+```ebnf
 statement → exprStmt
           | printStmt
           | block ;
@@ -1232,11 +1234,20 @@ All the real work happens here:
 
 ^code block
 
-We create an empty list and then parse statements and add them to the list until
-we reach the end of the block, marked by the closing `}`. Note that the loop
-also has an explicit check for `isAtEnd()`. We have to be careful to avoid
-infinite loops, even when parsing invalid code. If the user forgot a closing
-`}`, the parser needs to not get stuck.
+We <span name="list">create</span> an empty list and then parse statements and
+add them to the list until we reach the end of the block, marked by the closing
+`}`. Note that the loop also has an explicit check for `isAtEnd()`. We have to
+be careful to avoid infinite loops, even when parsing invalid code. If the user
+forgot a closing `}`, the parser needs to not get stuck.
+
+<aside name="list">
+
+Having `block()` return the raw list of statements and leaving it to
+`statement()` to wrap that in a Stmt.Block looks a little odd. I did it that way
+because we'll reuse `block()` later for parsing function bodies and we don't
+want that body wrapped in a Stmt.Block.
+
+</aside>
 
 That's it for syntax. For semantics, we add another visit method to Interpreter:
 
@@ -1315,24 +1326,26 @@ something resembling a full-featured programming language.
     it a runtime error to access a variable that has not been initialized or
     assigned to, as in:
 
-        :::lox
-        // No initializers.
-        var a;
-        var b;
+    ```lox
+    // No initializers.
+    var a;
+    var b;
 
-        a = "assigned";
-        print a; // OK, was assigned first.
+    a = "assigned";
+    print a; // OK, was assigned first.
 
-        print b; // Error!
+    print b; // Error!
+    ```
 
 3.  What does the following program do?
 
-        :::lox
-        var a = 1;
-        {
-          var a = a + 2;
-          print a;
-        }
+    ```lox
+    var a = 1;
+    {
+      var a = a + 2;
+      print a;
+    }
+    ```
 
     What did you *expect* it to do? Is it what you think it should do? What
     does analogous code in other languages you are familiar with do? What do
@@ -1349,7 +1362,7 @@ existing one. Some languages collapse those to only assignment syntax. Assigning
 to a non-existent variable automatically brings it into being. This is called
 **implicit variable declaration** and exists in Python, Ruby, and CoffeeScript,
 among others. JavaScript has an explicit syntax to declare variables, but can
-also create new variables on assignment. Visual BASIC has [an option to enable
+also create new variables on assignment. Visual Basic has [an option to enable
 or disable implicit variables][vb].
 
 [vb]: https://msdn.microsoft.com/en-us/library/xe53dz5w(v=vs.100).aspx
@@ -1398,8 +1411,8 @@ But is that a good idea? Implicit declaration has some problems.
     its old value. This is particularly heinous in JavaScript where a typo will
     create a *global* variable, which may in turn interfere with other code.
 
-*   JS, Ruby, and CoffeeScript use the presence of an existing variable with
-    some name -- even in an outer scope -- to determine whether or not an
+*   JS, Ruby, and CoffeeScript use the presence of an existing variable with the
+    same name -- even in an outer scope -- to determine whether or not an
     assignment creates a new variable or assigns to an existing one. That means
     adding a new variable in a surrounding scope can change the meaning of
     existing code. What was once a local variable may silently turn into an

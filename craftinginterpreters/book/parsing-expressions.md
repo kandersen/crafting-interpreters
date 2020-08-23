@@ -1,6 +1,3 @@
-^title Parsing Expressions
-^part A Tree-Walk Interpreter
-
 > Grammar, which knows how to control even kings.
 > <cite>Molière</cite>
 
@@ -38,10 +35,10 @@ tokens into one of those syntax trees.
 [last chapter]: representing-code.html
 
 Some CS textbooks make a big deal out of parsers. In the 60s, computer
-scientists -- reasonably fed up with programming in assembly language -- started
-designing more sophisticated, <span name="human">human</span>-friendly languages
-like FORTRAN and ALGOL. Alas, they weren't very *machine*-friendly, for the
-primitive machines at the time.
+scientists -- understandably tired of programming in assembly language --
+started designing more sophisticated, <span name="human">human</span>-friendly
+languages like FORTRAN and ALGOL. Alas, they weren't very *machine*-friendly,
+for the primitive machines at the time.
 
 <aside name="human">
 
@@ -77,10 +74,13 @@ that is *ambiguous*, where different choices of productions can lead to the same
 string. When you're using the grammar to *generate* strings, that doesn't matter
 much. Once you have the string, who cares how you got to it?
 
-When parsing, ambiguity means the parser may misunderstand the user's code.
-Here's the Lox expression grammar we put together in the last chapter:
+When parsing, ambiguity means the parser may misunderstand the user's code. As
+we parse, we aren't just determining if the string is valid Lox code, we're
+also tracking which rules match which parts of it so that we know what part of
+the language each token belongs to. Here's the Lox expression grammar we put
+together in the last chapter:
 
-```lox
+```ebnf
 expression → literal
            | unary
            | binary
@@ -135,23 +135,27 @@ is by defining rules for precedence and associativity.
     "left-to-right"), operators on the left evaluate before those on the right.
     Since `-` is left-associative, this expression:
 
-        :::lox
-        5 - 3 - 1
+    ```lox
+    5 - 3 - 1
+    ```
 
     is equivalent to:
 
-        :::lox
-        (5 - 3) - 1
+    ```lox
+    (5 - 3) - 1
+    ```
 
     Assignment, on the other hand, is **right-associative**. This:
 
-        :::lox
-        a = b = c
+    ```lox
+    a = b = c
+    ```
 
     is equivalent to:
 
-        :::lox
-        a = (b = c)
+    ```lox
+    a = (b = c)
+    ```
 
 <aside name="nonassociative">
 
@@ -167,8 +171,8 @@ operator isn't associative, so `a .. b` is OK, but `a .. b .. c` is an error.
 
 Without well-defined precedence and associativity, an expression that uses
 multiple operators is ambiguous -- it can be parsed into different syntax trees,
-which could in turn evaluate to different results. For Lox, we follow the same
-precedence rules as C, going from highest to lowest:
+which could in turn evaluate to different results. We'll fix that in Lox by
+applying the same precedence rules as C, going from lowest to highest:
 
 <table>
 <thead>
@@ -180,18 +184,8 @@ precedence rules as C, going from highest to lowest:
 </thead>
 <tbody>
 <tr>
-  <td>Unary</td>
-  <td><code>!</code> <code>-</code></td>
-  <td>Right</td>
-</tr>
-<tr>
-  <td>Multiplication</td>
-  <td><code>/</code> <code>*</code></td>
-  <td>Left</td>
-</tr>
-<tr>
-  <td>Addition</td>
-  <td><code>-</code> <code>+</code></td>
+  <td>Equality</td>
+  <td><code>==</code> <code>!=</code></td>
   <td>Left</td>
 </tr>
 <tr>
@@ -201,16 +195,40 @@ precedence rules as C, going from highest to lowest:
   <td>Left</td>
 </tr>
 <tr>
-  <td>Equality</td>
-  <td><code>==</code> <code>!=</code></td>
+  <td>Addition</td>
+  <td><code>-</code> <code>+</code></td>
   <td>Left</td>
+</tr>
+<tr>
+  <td>Multiplication</td>
+  <td><code>/</code> <code>*</code></td>
+  <td>Left</td>
+</tr>
+<tr>
+  <td>Unary</td>
+  <td><code>!</code> <code>-</code></td>
+  <td>Right</td>
 </tr>
 </tbody>
 </table>
 
-How do we <span name="massage">stuff these restrictions</span> into our
-context-free grammar? Right now, when we have an expression that contains
-subexpressions, like a binary operator, we allow *any* expression in there:
+Right now, the grammar stuffs all expression types into a single `expression`
+rule. That same rule is used as the non-terminal for subexpressions, which lets
+the grammar accept any kind of expression as an operand, regardless of whether
+the precedence rules allow it.
+
+We fix that by <span name="massage">stratifying</span> the grammar. We define a
+separate rule for each precedence level:
+
+```ebnf
+expression     → ...
+equality       → ...
+comparison     → ...
+addition       → ...
+multiplication → ...
+unary          → ...
+primary        → ...
+```
 
 <aside name="massage">
 
@@ -221,43 +239,74 @@ disambiguate.
 
 </aside>
 
-```lox
-binary → expression operator expression ;
-```
+Each rule here only matches expressions at its precedence level or higher. For
+example, `unary` matches a unary expression like `!negated` or a primary
+expression like `1234`. And `addition` can match `1 + 2` but also `3 * 4 / 5`.
+The final `primary` rule covers the highest-precedence expressions -- literals
+and parenthesized grouping expressions.
 
-The `expression` nonterminal allows us to pick any kind of expression as an
-operand, regardless of the operator we picked. The rules of precedence limit
-that. For example, an operand of a `*` expression cannot be a `+` <span
-name="paren">expression</span>, since the latter has lower precedence.
+We just need to fill in the productions for each of those rules. We'll do the
+easy ones first. The top `expression` rule matches any expression at any
+precedence level. Since <span name="equality">`equality`</span> has the lowest
+precedence, if we match that, then it covers everything:
 
-<aside name="paren">
+<aside name="equality">
 
-Of course, it could be a *parenthesized* addition expression, but that's because
-the parentheses themeselves are treated as having the highest precedence.
+We could eliminate `expression` and simply use `equality` in the other rules
+that contain expressions, but using `expression` makes those other rules read a
+little better.
+
+Also, in later chapters, when we expand the grammar to include assignment and
+logical operators, we'll only need to change `expression` instead of touching
+every rule that contains an expression.
 
 </aside>
 
-For the multiplication operands, we need a nonterminal that means "any kind of
-expression of higher precedence than `*`". Something like:
-
-```lox
-multiplication → higherThanMultiply "*" higherThanMultiply ;
+```ebnf
+expression     → equality
 ```
 
-Since `*` and `/` have the same precedence and the level above them is unary
-operators, a better approximation is:
+Over at the other end of the precedence table, a primary expression contains
+all the literals and grouping expressions:
 
-```lox
-multiplication → unary ( "*" | "/" ) unary ;
+```ebnf
+primary        → NUMBER | STRING | "false" | "true" | "nil"
+               | "(" expression ")" ;
 ```
 
-Except that's not *quite* right. We broke associativity. This `multiplication`
-rule doesn't allow `1 * 2 * 3`. To support associativity, we make one side
-permit expressions at the *same* level. Which side we choose determines if the
-operator is left- or right-associative. Since multiplication and <span
-name="div">division</span> are left-associative, it's:
+A unary expression starts with a unary operator followed by the operand. Since
+unary operators can nest -- `!!true` is a valid if weird expression -- the
+operand can itself be a unary operator. A recursive rule handles that nicely:
 
-<aside name="div">
+```ebnf
+unary          → ( "!" | "-" ) unary ;
+```
+
+But this rule has a problem. It never terminates. Remember, each rule needs to
+match expressions at that precedence level *or higher*, so we also need to let
+this match a primary expression:
+
+```ebnf
+unary          → ( "!" | "-" ) unary
+               | primary ;
+```
+
+That works.
+
+The remaining rules are all binary operators. We'll start with the rule for
+multiplication and division. Here's a first try:
+
+```ebnf
+multiplication → multiplication ( "/" | "*" ) unary
+               | unary ;
+```
+
+The rule recurses to match the left operand. That enables the rule to match a
+series of multiplication and division expressions like `1 * 2 / 3`. Putting the
+recursive production on the left side and `unary` on the right makes the rule
+<span name="mult">left-associative</span> and unambiguous.
+
+<aside name="mult">
 
 In principle, it doesn't matter whether you treat multiplication as left- or
 right-associative -- you get the same result either way. Alas, in the real world
@@ -265,13 +314,13 @@ with limited precision, roundoff and overflow mean that associativity can affect
 the result of a sequence of multiplications. Consider:
 
 ```lox
-print 0.1 + (0.2 + 0.3);
-print (0.1 + 0.2) + 0.3;
+print 0.1 * (0.2 * 0.3);
+print (0.1 * 0.2) * 0.3;
 ```
 
 In languages like Lox that use [IEEE 754][754] double-precision floating-point
-numbers, the first evaluates to `0.6`, while the second yields
-`0.6000000000000001`. Sometimes that tiny difference matters.
+numbers, the first evaluates to `0.006`, while the second yields
+`0.006000000000000001`. Sometimes that tiny difference matters.
 [This][float] is a good place to learn more.
 
 [754]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
@@ -279,26 +328,28 @@ numbers, the first evaluates to `0.6`, while the second yields
 
 </aside>
 
-```lox
-multiplication → multiplication ( "*" | "/" ) unary ;
-```
+All of this is correct, but the fact that the first nonterminal in the body of
+the rule is the same as the head of the rule means this production is
+**left-recursive**. Some parsing techniques, including the one we're going to
+use, have trouble with left recursion. (Recursion elsewhere, like we have in
+`unary` and the indirect recursion for grouping in `primary` are not a problem.)
 
-This is correct, but the fact that the first nonterminal in the body of the rule
-is the same as the head of the rule means this production is **left-recursive**.
-Some parsing techniques, including the one we're going to use, have trouble with
-left recursion. Instead, we'll use this other style:
+There are many grammars you can define that match the same language. The choice
+for how to model a particular language is partially a matter of taste and
+partially a pragmatic one. This rule is correct, but not optimal for how we
+intend to parse it. Instead of a left recursive rule, we'll use a different one:
 
-```lox
+```ebnf
 multiplication → unary ( ( "/" | "*" ) unary )* ;
 ```
 
-At the grammar level, this sidesteps left recursion by saying a multiplication
-expression is a flat *sequence* of multiplications and divisions. This mirrors
-the code we'll use to parse a sequence of multiplications.
+We define a multiplication expression as a flat *sequence* of multiplications
+and divisions. This matches the same syntax as the previous rule, but better
+mirrors the code we'll write to parse code. We use the same structure for all of
+other binary operator precedence levels giving us this complete expression
+grammar:
 
-If we rejigger all of the binary operator rules in the same way, we get:
-
-```lox
+```ebnf
 expression     → equality ;
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
@@ -310,37 +361,17 @@ primary        → NUMBER | STRING | "false" | "true" | "nil"
                | "(" expression ")" ;
 ```
 
-Instead of a single `binary` rule, there are now four separate rules for each binary operator precedence level. The main `expression` rule is no longer a flat series of `|` branches for each kind of expression. Instead, it is simply an alias for the lowest-precedence expression form, <span name="equality">`equality`</span>, because that includes all higher-precedence expressions too.
-
-<aside name="equality">
-
-In later chapters, when we expand the grammar to include assignment and logical
-operators, this will change, but equality is the lowest for now.
-
-</aside>
-
-Each binary operator's operands use the next-higher precedence level. After the
-binary operators, we go to `unary`, the rule for unary operator expressions,
-since those bind tighter than binary ones. For `unary`, we *do* use a recursive
-rule because unary operators are right-associative, which means instead of left
-recursion, we have **right recursion**. The `unary` nonterminal is at the end of
-the body for `unary`, not the beginning, and our parser won't have any trouble
-with that.
-
-Finally, the `unary` rule alternately bubbles up to `primary` in cases where it
-doesn't match a unary operator. "Primary" is the time-honored name for the
-highest level of precedence including the atomic expressions like literals.
-
-Our grammar grew a bit, but it's unambiguous now. We're ready to make a parser
-for it.
+This grammar is more complex than the one we had before, but in return we have
+eliminated the previous one's ambiguity. It's just what we need to make a
+parser.
 
 ## Recursive Descent Parsing
 
 There is a whole pack of parsing techniques whose names mostly seem to be
 combinations of "L" and "R" -- [LL(k)][], [LR(1)][lr], [LALR][] -- along with
-more exotic beasts like [parser combinators][], [Earley parsers][], [the
-shunting yard algorithm][], and [packrat parsing][]. For our first interpreter,
-one technique is more than sufficient: **recursive descent**.
+more exotic beasts like [parser combinators][], [Earley parsers][],
+[the shunting yard algorithm][], and [packrat parsing][]. For our first
+interpreter, one technique is more than sufficient: **recursive descent**.
 
 [ll(k)]: https://en.wikipedia.org/wiki/LL_parser
 [lr]: https://en.wikipedia.org/wiki/LR_parser
@@ -394,9 +425,9 @@ rule translates to code roughly like:
 <tbody>
   <tr><td>Terminal</td><td>Code to match and consume a token</td></tr>
   <tr><td>Nonterminal</td><td>Call to that rule&rsquo;s function</td></tr>
-  <tr><td><code>|</code></td><td>If or switch statement</td></tr>
-  <tr><td><code>*</code> or <code>+</code></td><td>While or for loop</td></tr>
-  <tr><td><code>?</code></td><td>If statement</td></tr>
+  <tr><td><code>|</code></td><td><code>if</code> or <code>switch</code> statement</td></tr>
+  <tr><td><code>*</code> or <code>+</code></td><td><code>while</code> or <code>for</code> loop</td></tr>
+  <tr><td><code>?</code></td><td><code>if</code> statement</td></tr>
 </tbody>
 </table>
 
@@ -434,7 +465,7 @@ and so on, until the parser hits a stack overflow and dies.
 
 The rule for equality is a little more complex:
 
-```lox
+```ebnf
 equality → comparison ( ( "!=" | "==" ) comparison )* ;
 ```
 
@@ -446,8 +477,8 @@ Let's step through it. The left `comparison` nonterminal in the body is
 translated to the first call to `comparison()` and we store that in a local
 variable.
 
-Then, the `( ... )*` loop in the rule is mapped to a while loop. We need to know
-when to exit that loop. We can see that inside the rule, we must first find
+Then, the `( ... )*` loop in the rule is mapped to a `while` loop. We need to
+know when to exit that loop. We can see that inside the rule, we must first find
 either a `!=` or `==` token. So, if we *don't* see one of those, we must be done
 with the sequence of equality operators. We express that check using a handy
 `match()` method:
@@ -480,7 +511,7 @@ consumed token. The latter makes it easier to use `match()` and then access the
 just-matched token.
 
 That's most of the parsing infrastructure we need. Where were we? Right, so if
-we are inside the while loop in `equality()`, then the parser knows it found a
+we are inside the `while` loop in `equality()`, then the parser knows it found a
 `!=` or `==` operator and must be parsing an equality expression.
 
 It grabs the token that was matched for the operator so we can track which kind
@@ -510,7 +541,7 @@ this method matches an equality operator *or anything of higher precedence*.
 
 Moving on to the next rule...
 
-```lox
+```ebnf
 comparison → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
 ```
 
@@ -538,7 +569,7 @@ That's all of the binary operators, parsed with the correct precedence and
 associativity. We're crawling up the precedence hierarchy and now we've reached
 the unary operators:
 
-```lox
+```ebnf
 unary → ( "!" | "-" ) unary
       | primary ;
 ```
@@ -562,7 +593,7 @@ puts recursive descent into the category of **predictive parsers**.
 Otherwise, we must have reached the highest level of precedence, primary
 expressions.
 
-```lox
+```ebnf
 primary → NUMBER | STRING | "false" | "true" | "nil"
         | "(" expression ")" ;
 ```
@@ -697,7 +728,7 @@ we'll get the machinery in place for later.
 
 ### Entering panic mode
 
-Back before we went on this side trek about error recovery, we were writing the
+Back before we went on this side trip around error recovery, we were writing the
 code to parse a parenthesized expression. After parsing the expression, it
 looks for the closing `)` by calling `consume()`. Here, finally, is that method:
 
@@ -745,7 +776,7 @@ For example, some languages have a unary `+` operator, like `+123`, but Lox does
 not. Instead of getting confused when the parser stumbles onto a `+` at the
 beginning of an expression, we could extend the unary rule to allow it:
 
-```lox
+```ebnf
 unary → ( "!" | "-" | "+" ) unary
         | primary ;
 ```
@@ -879,8 +910,6 @@ precedence and associativity correctly? Not bad for less than 200 lines of code.
     operand and discards the result. Then it evaluates and returns the right
     operand.
 
-[comma operator]: https://en.wikipedia.org/wiki/Comma_operator
-
     Add support for comma expressions. Give them the same precedence and
     associativity as in C. Write the grammar, and then implement the necessary
     parsing code.
@@ -893,6 +922,8 @@ precedence and associativity correctly? Not bad for less than 200 lines of code.
     left-hand operand. In other words, detect a binary operator appearing at the
     beginning of an expression. Report that as an error, but also parse and
     discard a right-hand operand with the appropriate precedence.
+
+[comma operator]: https://en.wikipedia.org/wiki/Comma_operator
 
 </div>
 
