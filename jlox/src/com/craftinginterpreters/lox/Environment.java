@@ -5,7 +5,23 @@ import java.util.Map;
 
 class Environment {
 
-     class Value {
+    public Object getAt(Integer distance, String name) {
+        return ancestor(distance).values.get(name).value;
+    }
+
+    private Environment ancestor(Integer distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+        return environment;
+    }
+
+    public void assignAt(Integer distance, Token name, Object value) {
+        ancestor(distance).values.put(name.lexeme, new Value(value));
+    }
+
+    class Value {
          public boolean written;
          public Object value;
 
