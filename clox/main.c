@@ -1,119 +1,39 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "common.h"
+#include "chunk.h"
+#include "debug.h"
+#include "vm.h"
 
-struct node {
-    struct node* next;
-    struct node* prev;
-    int data;
-};
+int main(int argc, const char* argv[]) {
+    VM vm;
+    initVM(&vm);
 
-struct node* alloc_node(int data) {
-    struct node* result = (struct node*) malloc(sizeof(struct node));
-    result->next = NULL;
-    result->prev = NULL;
-    result->data = data;
-    return result;
-}
+    Chunk chunk;
+    initChunk(&chunk);
 
-struct list {
-    struct node* head;
-    struct node* tail;
-    int length;
-};
+    int constant = addConstant(&chunk, 1.2);
+    writeChunk(&chunk, OP_CONSTANT, 123);
+    writeChunk(&chunk, constant, 123);
 
-struct list* alloc_list() {
-    struct list* result = (struct list*) malloc(sizeof(struct list));
-    result->head = NULL;
-    result->tail = NULL;
-    result->length = 0;
-    return result;
-}
+    constant = addConstant(&chunk, 3.4);
+    writeChunk(&chunk, OP_CONSTANT, 123);
+    writeChunk(&chunk, constant, 123);
 
-void free_list(struct list* list) {
-    struct node* current = list->head;
-    while(current != NULL) {
-        struct node* tmp = current;
-        current = current->next;
-        free(tmp);
-    }
-    free(list);
-}
+    writeChunk(&chunk, OP_ADD, 123);
 
-void push(int data, struct list* list) {
-    struct node* new_head = alloc_node(data);
-    new_head->next = list->head;
+    constant = addConstant(&chunk, 5.6);
+    writeChunk(&chunk, OP_CONSTANT, 123);
+    writeChunk(&chunk, constant, 123);
 
-    if (list->length == 0) {
-        list->head = new_head;
-        list->tail = new_head;
-    } else {
-        list->head->prev = new_head;
-        list->head = new_head;
-    }
+    writeChunk(&chunk, OP_DIVIDE, 123);
 
-    list->length += 1;
-}
+    writeChunk(&chunk, OP_NEGATE, 123);
 
+    writeChunk(&chunk, OP_RETURN, 123);
 
-
-void print_list(struct list* list) {
-    struct node* current = list->head;
-    while(current != NULL) {
-        printf("%d => ", current->data);
-        current = current->next;
-    }
-    printf("[null]\n");
-}
-
-void print_list_reverse(struct list* list) {
-    struct node* current = list->tail;
-    while(current != NULL) {
-        printf("%d => ", current->data);
-        current = current->prev;
-    }
-    printf("[null]\n");
-}
-
-int list_index(int i, struct list* list) {
-    if (list->length == 0) {
-        fprintf(stderr, "Indexing empty list");
-        exit(EXIT_FAILURE);
-    }
-
-    if (i < 0 || list->length <= i) {
-        fprintf(stderr, "List index out of bounds");
-        exit(EXIT_FAILURE);
-    }
-
-
-    struct node* current = list->head;
-    while(i > 0){
-        current = list->head->next;
-        i -= 1;
-    }
-    return current->data;
-}
-
-
-int main(int argc, char* argv[]) {
-    printf("Hello, World!\n");
-    struct list* l = alloc_list();
-    push(4, l);
-    push(1, l);
-    push(5, l);
-
-    print_list(l);
-    print_list_reverse(l);
-
-    printf("l[1] |-> %d\n", list_index(1, l));
-    printf("l[2] |-> %d\n", list_index(2, l));
-
-    //printf("l[2] |-> %d\n", list_index(48, l));
-
-    free_list(l);
-
-
-
-    printf("%i\n", 5 / atoi(argv[1]));
+    disassembleChunk(&chunk, "test chunk");
+    interpret(&vm, &chunk);
+    
+    freeVM(&vm);
+    freeChunk(&chunk);
     return 0;
 }
