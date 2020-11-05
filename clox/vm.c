@@ -67,10 +67,9 @@ void freeVM(VM* vm) {
     initVM(vm);
 }
 
-InterpretResult interpret(VM* vm, Chunk* chunk) {
-    vm->chunk = chunk;
-    vm->ip = vm->chunk->code;
-    return run(vm);
+InterpretResult interpret(VM* vm, const char* source) {
+    compile(source);
+    return INTERPRET_OK;
 }
 
 void push(VM* vm, Value value) {
