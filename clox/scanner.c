@@ -59,7 +59,7 @@ static void skipWhitespace(Scanner* scanner) {
             case '\t':
                 advance(scanner);
                 break;
-            case 'n':
+            case '\n':
                 scanner->line++;
                 advance(scanner);
                 break;
@@ -165,6 +165,8 @@ void initScanner(Scanner* scanner, const char* source) {
 }
 
 Token scanToken(Scanner* scanner) {
+    skipWhitespace(scanner);
+
     scanner->start = scanner->current;
 
     if (isAtEnd(scanner)) return makeToken(scanner, TOKEN_EOF);

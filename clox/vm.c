@@ -3,6 +3,7 @@
 #include "common.h"
 #include "debug.h"
 #include "vm.h"
+#include "compiler.h"
 
 
 static InterpretResult run(VM* vm) {
@@ -68,7 +69,20 @@ void freeVM(VM* vm) {
 }
 
 InterpretResult interpret(VM* vm, const char* source) {
-    compile(source);
+    Chunk chunk;
+    initChunk(&chunk);
+
+    if(!compile(source, &chunk)) {
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm->chunk = &chunk;
+    vm->ip = vm->chunk->code;
+
+    InterpretResult result = run(vm);
+
+    freeChunk(&chunk);
     return INTERPRET_OK;
 }
 
