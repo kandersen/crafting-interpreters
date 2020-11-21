@@ -3,6 +3,7 @@
 
 #include "scanner.h"
 #include "chunk.h"
+#include "object.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -15,6 +16,7 @@ typedef struct {
     bool panicMode;
     Scanner* scanner;
     Chunk* compilingChunk;
+    VM* vm;
 } Parser;
 
 typedef enum {
@@ -89,7 +91,7 @@ static void consume(Parser* parser, TokenType type, const char* message) {
         return;
     }
 
-    errorAtCurrent(parser);
+    error(parser, message);
 }
 
 static Chunk* currentChunk(Parser* parser) {
@@ -120,7 +122,6 @@ static void endCompiler(Parser* parser) {
 
 static void expression(Parser* parser);
 static ParseRule* getRule(TokenType type);
-static void parsePrecedence(Parser* parser, Precedence precedence);
 
 static uint8_t makeConstant(Parser* parser, Value value) {
     int constant = addConstant(currentChunk(parser), value);
@@ -139,6 +140,12 @@ static void emitConstant(Parser* parser, Value value) {
 static void number(Parser* parser) {
     double value = strtod(parser->previous.start, NULL);
     emitConstant(parser, NUMBER_VAL(value));
+}
+
+static void string(Parser* parser) {
+    emitConstant(parser, OBJ_VAL(copyString(parser->vm,
+                                            parser->previous.start + 1,
+                                            parser->previous.length - 2)));
 }
 
 static void parsePrecendence(Parser* parser, Precedence precedence) {
@@ -233,7 +240,7 @@ ParseRule rules[] = {
     [TOKEN_LESS]          = { NULL,     binary, PREC_EQUALITY },
     [TOKEN_LESS_EQUAL]    = { NULL,     binary, PREC_EQUALITY },
     [TOKEN_IDENTIFIER]    = { NULL,     NULL,   PREC_NONE },
-    [TOKEN_STRING]        = { NULL,     NULL,   PREC_NONE },
+    [TOKEN_STRING]        = { string,   NULL,   PREC_NONE },
     [TOKEN_NUMBER]        = { number,   NULL,   PREC_NONE },
     [TOKEN_AND]           = { NULL,     NULL,   PREC_NONE },
     [TOKEN_CLASS]         = { NULL,     NULL,   PREC_NONE },
@@ -259,12 +266,13 @@ static ParseRule* getRule(TokenType type) {
     return &rules[type];
 }
 
-bool compile(const char* source, Chunk* chunk) {
+bool compile(VM* vm, const char* source, Chunk* chunk) {
     Scanner scanner;
     initScanner(&scanner, source);
 
     Parser parser;
     parser.scanner = &scanner;
+    parser.vm = vm;
     initParser(&parser, chunk);
     
     advance(&parser);
