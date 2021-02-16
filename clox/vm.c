@@ -146,10 +146,12 @@ void initVM(VM* vm) {
     resetStack(vm);
     vm->chunk = NULL;
     vm->objects = NULL;
+    initTable(vm->strings);
 }
 
 void freeVM(VM* vm) {
-    freeObjects(vm);
+    freeTable(vm->strings);
+    freeObjects(vm->objects);
     initVM(vm);
 }
 
