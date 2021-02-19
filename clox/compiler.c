@@ -94,6 +94,16 @@ static void consume(Parser* parser, TokenType type, const char* message) {
     error(parser, message);
 }
 
+static bool check(Parser* parser, TokenType type) {
+    return parser->current.type == type;
+}
+
+static bool match(Parser* parser, TokenType type) {
+    if (!check(parser, type)) return false;
+    advance(parser);
+    return true;
+}
+
 static Chunk* currentChunk(Parser* parser) {
     return parser->compilingChunk;
 }
@@ -121,6 +131,8 @@ static void endCompiler(Parser* parser) {
 }
 
 static void expression(Parser* parser);
+static void statement(Parser* parser);
+static void declaration(Parser* parser);
 static ParseRule* getRule(TokenType type);
 
 static uint8_t makeConstant(Parser* parser, Value value) {
@@ -167,6 +179,57 @@ static void parsePrecendence(Parser* parser, Precedence precedence) {
 
 static void expression(Parser* parser) {
     parsePrecendence(parser, PREC_ASSIGNMENT);
+}
+
+static void printStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(parser, OP_PRINT);
+}
+
+static void synchronize(Parser* parser) {
+    parser->panicMode = false;
+
+    while (parser->current.type != TOKEN_EOF) {
+        if (parser->previous.type == TOKEN_SEMICOLON) return;
+
+        switch (parser->current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+            default:
+                //NO-OP
+                ;
+        }
+
+        advance(parser);
+    }
+}
+
+static void declaration(Parser* parser) {
+    statement(parser);
+
+    if (parser->panicMode) synchronize(parser);
+}
+
+static void expressionStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+    emitByte(parser, OP_POP);
+}
+
+static void statement(Parser* parser) {
+    if (match(parser, TOKEN_PRINT)) {
+        printStatement(parser);
+    } else {
+        expressionStatement(parser);
+    }
 }
 
 static void grouping(Parser* parser) {
@@ -274,10 +337,13 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     parser.scanner = &scanner;
     parser.vm = vm;
     initParser(&parser, chunk);
-    
+
     advance(&parser);
-    expression(&parser);
-    consume(&parser, TOKEN_EOF, "Expect end of expression.");
+    
+    while (!match(&parser, TOKEN_EOF)) {
+        declaration(&parser);
+    }
+    
     endCompiler(&parser);
     return !parser.hadError;
 }

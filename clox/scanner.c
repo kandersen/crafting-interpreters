@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <string.h>
 
 #include "common.h"
@@ -197,7 +196,8 @@ Token scanToken(Scanner* scanner) {
             return makeToken(scanner, match(scanner, '=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
         case '"':
             return string(scanner);
-    }
+        default:
+            return errorToken(scanner, "Unexpected character.");
 
-    return errorToken(scanner, "Unexpected character.");
+    }
 }

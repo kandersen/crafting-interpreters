@@ -26,7 +26,7 @@ static ObjString* allocateString(VM* vm, char* chars, int length, uint32_t hash)
     string->chars = chars;
     string->hash = hash;
 
-    tableSet(vm->strings, string, NIL_VAL);
+    tableSet(&vm->strings, string, NIL_VAL);
 
     return string;
 }
@@ -43,7 +43,7 @@ static uint32_t hashString(const char* key, int length) {
 
 ObjString* takeString(VM* vm, char* chars, int length) {
     uint32_t hash = hashString(chars, length);
-    ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+    ObjString* interned = tableFindString(&vm->strings, chars, length, hash);
     if (interned != NULL) {
         FREE_ARRAY(char, chars, length + 1);
         return interned;
@@ -54,7 +54,7 @@ ObjString* takeString(VM* vm, char* chars, int length) {
 
 ObjString* copyString(VM* vm, const char* chars, int length) {
     uint32_t hash = hashString(chars, length);
-    ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+    ObjString* interned = tableFindString(&vm->strings, chars, length, hash);
     if (interned != NULL) return interned;
 
     char* heapChars = ALLOCATE(char, length + 1);

@@ -94,6 +94,10 @@ static InterpretResult run(VM* vm) {
                 push(vm, BOOL_VAL(false));
                 break;
             }
+            case OP_POP: {
+                pop(vm);
+                break;
+            }
             case OP_EQUAL: {
                 Value b = pop(vm);
                 Value a = pop(vm);
@@ -130,9 +134,13 @@ static InterpretResult run(VM* vm) {
                 push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
                 break;
             }
-            case OP_RETURN: {
+
+            case OP_PRINT: {
                 printValue(pop(vm));
                 printf("\n");
+                break;
+            }
+            case OP_RETURN: {
                 return INTERPRET_OK;
             }
         }
@@ -146,12 +154,12 @@ void initVM(VM* vm) {
     resetStack(vm);
     vm->chunk = NULL;
     vm->objects = NULL;
-    initTable(vm->strings);
+    initTable(&vm->strings);
 }
 
 void freeVM(VM* vm) {
-    freeTable(vm->strings);
     freeObjects(vm->objects);
+    freeTable(&vm->strings);
     initVM(vm);
 }
 
@@ -170,7 +178,7 @@ InterpretResult interpret(VM* vm, const char* source) {
     InterpretResult result = run(vm);
 
     freeChunk(&chunk);
-    return INTERPRET_OK;
+    return result;
 }
 
 void push(VM* vm, Value value) {
