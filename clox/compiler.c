@@ -183,7 +183,17 @@ static void parsePrecendence(Parser* parser, Precedence precedence) {
 }
 
 static uint8_t identifierConstant(Parser* parser, Token* name) {
-    return makeConstant(parser, OBJ_VAL(copyString(parser->vm, name->start, name->length)));
+    Value index;
+    ObjString* identifier = copyString(parser->vm, name->start, name->length);
+    if (tableGet(&parser->vm->globalNames, identifier, &index)) {
+        return (uint8_t)AS_NUMBER(index);
+    }
+
+    uint8_t newIndex = (uint8_t)parser->vm->globalValues.count;
+    writeValueArray(&parser->vm->globalValues, UNDEFINED_VAL);
+
+    tableSet(&parser->vm->globalNames, identifier, NUMBER_VAL((double)newIndex));
+    return newIndex;
 }
 
 static void namedVariable(Parser* parser, Token name, bool canAssign) {

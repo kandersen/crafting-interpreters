@@ -100,28 +100,25 @@ static InterpretResult run(VM* vm) {
                 break;
             }
             case OP_GET_GLOBAL: {
-                ObjString *name = READ_STRING();
-                Value value;
-                if (!tableGet(&vm->globals, name, &value)) {
-                    runtimeError(vm, "Undefined variable '%s'.", name->chars);
+                Value value = vm->globalValues.values[READ_BYTE()];
+                if (IS_UNDEFINED(value)) {
+                    runtimeError(vm, "Undefined variable.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 push(vm, value);
                 break;
             }
             case OP_DEFINE_GLOBAL: {
-                ObjString* name = READ_STRING();
-                tableSet(&vm->globals, name, peek(vm, 0));
-                pop(vm);
+                vm->globalValues.values[READ_BYTE()] = pop(vm);
                 break;
             }
             case OP_SET_GLOBAL: {
-                ObjString* name = READ_STRING();
-                if (tableSet(&vm->globals, name, peek(vm, 0))) {
-                    tableDelete(&vm->globals, name);
-                    runtimeError(vm, "Undefined variable '%s'.", name->chars);
+                uint8_t index = READ_BYTE();
+                if (IS_UNDEFINED(vm->globalValues.values[index])) {
+                    runtimeError(vm, "Undefined variable.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
+                vm->globalValues.values[index] = peek(vm, 0);
                 break;
             }
             case OP_EQUAL: {
@@ -180,13 +177,15 @@ void initVM(VM* vm) {
     resetStack(vm);
     vm->chunk = NULL;
     vm->objects = NULL;
-    initTable(&vm->globals);
+    initTable(&vm->globalNames);
+    initValueArray(&vm->globalValues);
     initTable(&vm->strings);
 }
 
 void freeVM(VM* vm) {
     freeObjects(vm->objects);
-    freeTable(&vm->globals);
+    freeTable(&vm->globalNames);
+    freeValueArray(&vm->globalValues);
     freeTable(&vm->strings);
     initVM(vm);
 }
