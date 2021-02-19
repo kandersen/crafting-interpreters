@@ -33,7 +33,7 @@ typedef enum {
     PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)(Parser*);
+typedef void (*ParseFn)(Parser*, bool);
 
 typedef struct {
     ParseFn prefix;
@@ -149,12 +149,12 @@ static void emitConstant(Parser* parser, Value value) {
     emitBytes(parser, OP_CONSTANT, makeConstant(parser, value));
 }
 
-static void number(Parser* parser) {
+static void number(Parser* parser, bool canAssign) {
     double value = strtod(parser->previous.start, NULL);
     emitConstant(parser, NUMBER_VAL(value));
 }
 
-static void string(Parser* parser) {
+static void string(Parser* parser, bool canAssign) {
     emitConstant(parser, OBJ_VAL(copyString(parser->vm,
                                             parser->previous.start + 1,
                                             parser->previous.length - 2)));
@@ -168,17 +168,63 @@ static void parsePrecendence(Parser* parser, Precedence precedence) {
         return;
     }
 
-    prefixRule(parser);
+    bool canAssign = precedence <= PREC_ASSIGNMENT;
+    prefixRule(parser, canAssign);
     
     while (precedence <= getRule(parser->current.type)->precedence) {
         advance(parser);
         ParseFn infixRule = getRule(parser->previous.type)->infix;
-        infixRule(parser);
+        infixRule(parser, true); // TODO(kjaa): NO IDEA if this is right, it might not need canAssign.
     }
+
+    if (canAssign && match(parser, TOKEN_EQUAL)) {
+        error(parser, "Invalid assignment target.");
+    }
+}
+
+static uint8_t identifierConstant(Parser* parser, Token* name) {
+    return makeConstant(parser, OBJ_VAL(copyString(parser->vm, name->start, name->length)));
+}
+
+static void namedVariable(Parser* parser, Token name, bool canAssign) {
+    uint8_t arg = identifierConstant(parser, &name);
+
+    if (canAssign && match(parser, TOKEN_EQUAL)) {
+        expression(parser);
+        emitBytes(parser, OP_SET_GLOBAL, arg);
+    } else {
+        emitBytes(parser, OP_GET_GLOBAL, arg);
+    }
+}
+
+static void variable(Parser* parser, bool canAssign) {
+    namedVariable(parser, parser->previous, canAssign);
+}
+
+static uint8_t parseVariable(Parser* parser, const char* errorMessage) {
+    consume(parser, TOKEN_IDENTIFIER, errorMessage);
+    return identifierConstant(parser, &parser->previous);
+}
+
+static void defineVariable(Parser* parser, uint8_t global) {
+    emitBytes(parser, OP_DEFINE_GLOBAL, global);
 }
 
 static void expression(Parser* parser) {
     parsePrecendence(parser, PREC_ASSIGNMENT);
+}
+
+static void varDeclaration(Parser* parser) {
+    uint8_t global = parseVariable(parser, "Expect variable name.");
+
+    if (match(parser, TOKEN_EQUAL)) {
+        expression(parser);
+    } else {
+        emitByte(parser, OP_NIL);
+    }
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+    defineVariable(parser, global);
 }
 
 static void printStatement(Parser* parser) {
@@ -213,7 +259,11 @@ static void synchronize(Parser* parser) {
 }
 
 static void declaration(Parser* parser) {
-    statement(parser);
+    if (match(parser, TOKEN_VAR)) {
+        varDeclaration(parser);
+    } else {
+        statement(parser);
+    }
 
     if (parser->panicMode) synchronize(parser);
 }
@@ -232,12 +282,12 @@ static void statement(Parser* parser) {
     }
 }
 
-static void grouping(Parser* parser) {
+static void grouping(Parser* parser, bool canAssign) {
     expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void unary(Parser* parser) {
+static void unary(Parser* parser, bool canAssign) {
     //TODO(kjaa): See note on error reporting in 17.4.3
     TokenType operatorType = parser->previous.type;
     parsePrecendence(parser, PREC_UNARY);
@@ -250,7 +300,7 @@ static void unary(Parser* parser) {
     }
 }
 
-static void binary(Parser* parser) {
+static void binary(Parser* parser, bool canAssign) {
     TokenType operatorType = parser->previous.type;
 
     ParseRule* rule = getRule(operatorType);
@@ -272,7 +322,7 @@ static void binary(Parser* parser) {
     }
 }
 
-static void literal(Parser* parser) {
+static void literal(Parser* parser, bool canAssign) {
     switch (parser->previous.type) {
         case TOKEN_NIL: emitByte(parser, OP_NIL); break;
         case TOKEN_TRUE: emitByte(parser, OP_TRUE); break;
@@ -302,7 +352,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQUAL] = { NULL,     binary, PREC_EQUALITY },
     [TOKEN_LESS]          = { NULL,     binary, PREC_EQUALITY },
     [TOKEN_LESS_EQUAL]    = { NULL,     binary, PREC_EQUALITY },
-    [TOKEN_IDENTIFIER]    = { NULL,     NULL,   PREC_NONE },
+    [TOKEN_IDENTIFIER]    = { variable,     NULL,   PREC_NONE },
     [TOKEN_STRING]        = { string,   NULL,   PREC_NONE },
     [TOKEN_NUMBER]        = { number,   NULL,   PREC_NONE },
     [TOKEN_AND]           = { NULL,     NULL,   PREC_NONE },
