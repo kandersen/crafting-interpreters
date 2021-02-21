@@ -52,6 +52,7 @@ static void concatenate(VM* vm) {
 static InterpretResult run(VM* vm) {
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
+#define READ_SHORT() (vm->ip += 2, (uint16_t)((vm->ip[-2] << 8) | vm->ip[-1]))
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op) \
     do { \
@@ -67,13 +68,13 @@ static InterpretResult run(VM* vm) {
     for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
-        for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
+        for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
             printf("[ ");
             printValue(*slot);
             printf(" ]");
         }
         printf("\n");
-        disassembleInstruction(vm->chunk, (int)(vm->ip - vm->chunk->code));
+        disassembleInstruction(vm->chunk, (int) (vm->ip - vm->chunk->code));
 #endif
 
         uint8_t instruction;
@@ -137,8 +138,12 @@ static InterpretResult run(VM* vm) {
                 push(vm, BOOL_VAL(valuesEqual(a, b)));
                 break;
             }
-            case OP_LESS:     BINARY_OP(BOOL_VAL, <); break;
-            case OP_GREATER:  BINARY_OP(BOOL_VAL, >); break;
+            case OP_LESS:
+                BINARY_OP(BOOL_VAL, <);
+                break;
+            case OP_GREATER:
+                BINARY_OP(BOOL_VAL, >);
+                break;
             case OP_ADD: {
                 if (IS_STRING(peek(vm, 0)) && IS_STRING(peek(vm, 1))) {
                     concatenate(vm);
@@ -151,16 +156,22 @@ static InterpretResult run(VM* vm) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 break;
-            }   
-            case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
-            case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
-            case OP_DIVIDE:   BINARY_OP(NUMBER_VAL, /); break;
+            }
+            case OP_SUBTRACT:
+                BINARY_OP(NUMBER_VAL, -);
+                break;
+            case OP_MULTIPLY:
+                BINARY_OP(NUMBER_VAL, *);
+                break;
+            case OP_DIVIDE:
+                BINARY_OP(NUMBER_VAL, /);
+                break;
             case OP_NOT: {
                 push(vm, BOOL_VAL(isFalsey(pop(vm))));
                 break;
             }
             case OP_NEGATE: {
-                if (!IS_NUMBER(peek(vm,0))) {
+                if (!IS_NUMBER(peek(vm, 0))) {
                     runtimeError(vm, "Operand must be a number.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -173,13 +184,30 @@ static InterpretResult run(VM* vm) {
                 printf("\n");
                 break;
             }
-            case OP_RETURN: {
-                return INTERPRET_OK;
+            case OP_JUMP: {
+                uint16_t offset = READ_SHORT();
+                vm->ip += offset;
+                break;
+                case OP_JUMP_IF_FALSE: {
+                    uint16_t offset = READ_SHORT();
+                    if (isFalsey(peek(vm, 0))) vm->ip += offset;
+                    break;
+                }
+                case OP_LOOP: {
+                    uint16_t offset = READ_SHORT();
+                    vm->ip -= offset;
+                    break;
+                }
+                case OP_RETURN: {
+                    return INTERPRET_OK;
+                }
             }
         }
     }
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
+#undef READ_SHORT
 #undef BINARY_OP
 }
 
