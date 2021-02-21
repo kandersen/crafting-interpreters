@@ -24,16 +24,23 @@ typedef enum {
     PREC_PRIMARY
 } Precedence;
 
+typedef enum {
+    VAR_UNINITIALIZED,
+    VAR_READABLE,
+    VAR_WRITEABLE
+} VarState;
 
 typedef struct {
     Token name;
     int depth;
+    VarState state;
 } Local;
 
 typedef struct {
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
+    VarState globalStates[UINT8_COUNT];
 } Compiler;
 
 static void initCompiler(Compiler* compiler) {
@@ -242,7 +249,7 @@ static int resolveLocal(Parser* parser, Token* name) {
     for (int i = compiler->localCount - 1; i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
-            if (local->depth == -1) {
+            if (local->state == VAR_UNINITIALIZED) {
                 error(parser, "Cant read local variable in its own initializer.");
             }
             return i;
@@ -259,7 +266,8 @@ static void addLocal(Parser* parser, Token name) {
 
     Local* local = &parser->currentCompiler.locals[parser->currentCompiler.localCount++];
     local->name = name;
-    local->depth = -1;
+    local->depth = parser->currentCompiler.scopeDepth;
+    local->state = VAR_UNINITIALIZED;
 }
 
 static void declareVariable(Parser* parser) {
@@ -282,17 +290,23 @@ static void declareVariable(Parser* parser) {
 
 static void namedVariable(Parser* parser, Token name, bool canAssign) {
     uint8_t getOp, setOp;
+    VarState varState;
     int arg = resolveLocal(parser, &name);
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+        varState = parser->currentCompiler.locals[arg].state;
     } else {
         arg = identifierConstant(parser, &name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
+        varState = parser->currentCompiler.globalStates[arg];
     }
 
     if (canAssign && match(parser, TOKEN_EQUAL)) {
+        if (varState != VAR_WRITEABLE) {
+            error(parser, "Writing to const variable.");
+        }
         expression(parser);
         emitBytes(parser, setOp, (uint8_t) arg);
     } else {
@@ -313,15 +327,18 @@ static uint8_t parseVariable(Parser* parser, const char* errorMessage) {
     return identifierConstant(parser, &parser->previous);
 }
 
-static void markInitialized(Compiler* compiler) {
-    compiler->locals[compiler->localCount - 1].depth = compiler->scopeDepth;
+static void markInitialized(Compiler* compiler, VarState varState) {
+    compiler->locals[compiler->localCount - 1].state = varState;
 }
 
-static void defineVariable(Parser* parser, uint8_t global) {
+static void defineVariable(Parser* parser, uint8_t global, VarState varState) {
+    // If Local Variable
     if (parser->currentCompiler.scopeDepth > 0) {
-        markInitialized(&parser->currentCompiler);
+        markInitialized(&parser->currentCompiler, varState);
         return;
     }
+    // Else, global variable
+    parser->currentCompiler.globalStates[global] = varState;
     emitBytes(parser, OP_DEFINE_GLOBAL, global);
 }
 
@@ -337,7 +354,7 @@ static void block(Parser* parser) {
     consume(parser, TOKEN_RIGHT_BRACE, "Expect '}' after block");
 }
 
-static void varDeclaration(Parser* parser) {
+static void varDeclaration(Parser* parser, VarState varState) {
     uint8_t global = parseVariable(parser, "Expect variable name.");
 
     if (match(parser, TOKEN_EQUAL)) {
@@ -347,7 +364,7 @@ static void varDeclaration(Parser* parser) {
     }
     consume(parser, TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
-    defineVariable(parser, global);
+    defineVariable(parser, global, varState);
 }
 
 static void printStatement(Parser* parser) {
@@ -383,7 +400,9 @@ static void synchronize(Parser* parser) {
 
 static void declaration(Parser* parser) {
     if (match(parser, TOKEN_VAR)) {
-        varDeclaration(parser);
+        varDeclaration(parser, VAR_WRITEABLE);
+    } else if (match(parser, TOKEN_CONST)) {
+        varDeclaration(parser, VAR_READABLE);
     } else {
         statement(parser);
     }
@@ -497,6 +516,7 @@ ParseRule rules[] = {
     [TOKEN_THIS]          = { NULL,     NULL,   PREC_NONE },
     [TOKEN_TRUE]          = { literal,  NULL,   PREC_NONE },
     [TOKEN_VAR]           = { NULL,     NULL,   PREC_NONE },
+    [TOKEN_CONST]         = { NULL,     NULL,   PREC_NONE },
     [TOKEN_WHILE]         = { NULL,     NULL,   PREC_NONE },
     [TOKEN_ERROR]         = { NULL,     NULL,   PREC_NONE },
     [TOKEN_EOF]           = { NULL,     NULL,   PREC_NONE },
