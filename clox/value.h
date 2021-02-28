@@ -5,6 +5,8 @@
 
 typedef struct sObj Obj;
 typedef struct sObjString ObjString;
+typedef struct sObjFunction ObjFunction;
+typedef struct sObjNative ObjNative;
 
 typedef enum {
     VAL_BOOL,

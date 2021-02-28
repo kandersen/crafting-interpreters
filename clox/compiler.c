@@ -36,16 +36,33 @@ typedef struct {
     VarState state;
 } Local;
 
-typedef struct {
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT
+} FunctionType;
+
+typedef struct Compiler {
+    struct Compiler* enclosing;
+    ObjFunction* function;
+    FunctionType type;
+
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
     VarState globalStates[UINT8_COUNT];
 } Compiler;
 
-static void initCompiler(Compiler* compiler) {
+static void initCompiler(VM* vm, Compiler* compiler, FunctionType type) {
+    compiler->function = NULL;
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->function = newFunction(vm);
+
+    Local* local = &compiler->locals[compiler->localCount++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
 }
 
 typedef struct {
@@ -54,7 +71,6 @@ typedef struct {
     bool hadError;
     bool panicMode;
     Scanner* scanner;
-    Chunk* compilingChunk;
     Compiler currentCompiler;
     VM* vm;
 } Parser;
@@ -107,11 +123,11 @@ static void advance(Parser* parser) {
     
 }
 
-static void initParser(Parser* parser, Chunk* chunk) {
+static void initParser(VM* vm, Parser* parser) {
     parser->hadError = false;
     parser->panicMode = false;
-    parser->compilingChunk = chunk;
-    initCompiler(&parser->currentCompiler);
+    initCompiler(vm, &parser->currentCompiler, TYPE_SCRIPT);
+    parser->currentCompiler.enclosing = NULL;
 }
 
 static void consume(Parser* parser, TokenType type, const char* message) {
@@ -134,7 +150,7 @@ static bool match(Parser* parser, TokenType type) {
 }
 
 static Chunk* currentChunk(Parser* parser) {
-    return parser->compilingChunk;
+    return &parser->currentCompiler.function->chunk;
 }
 
 static void emitByte(Parser* parser, uint8_t byte) {
@@ -142,6 +158,7 @@ static void emitByte(Parser* parser, uint8_t byte) {
 }
 
 static void emitReturn(Parser* parser) {
+    emitByte(parser, OP_NIL);
     emitByte(parser, OP_RETURN);
 }
 
@@ -178,13 +195,16 @@ static void patchJump(Parser* parser, int offset) {
 }
 
 
-static void endCompiler(Parser* parser) {
+static ObjFunction* endCompiler(Parser* parser) {
     emitReturn(parser);
+    ObjFunction* function = parser->currentCompiler.function;
 #ifdef DEBUG_PRINT_CODE
     if (!parser->hadError) {
-        disassembleChunk(currentChunk(parser), "code");
+        disassembleChunk(currentChunk(parser), function->name != NULL ? function->name->chars : "<script>");
     }
 #endif
+    parser->currentCompiler = *parser->currentCompiler.enclosing;
+    return function;
 }
 
 static void beginScope(Parser* parser) {
@@ -356,6 +376,7 @@ static uint8_t parseVariable(Parser* parser, const char* errorMessage) {
 }
 
 static void markInitialized(Compiler* compiler, VarState varState) {
+    if (compiler->scopeDepth == 0) return;
     compiler->locals[compiler->localCount - 1].state = varState;
 }
 
@@ -368,6 +389,23 @@ static void defineVariable(Parser* parser, uint8_t global, VarState varState) {
     // Else, global variable
     parser->currentCompiler.globalStates[global] = varState;
     emitBytes(parser, OP_DEFINE_GLOBAL, global);
+}
+
+static uint8_t argumentList(Parser* parser) {
+    uint8_t argCount = 0;
+    if (!check(parser, TOKEN_RIGHT_PAREN)) {
+        do {
+            expression(parser);
+
+            if (argCount == 255) {
+                error(parser, "Can't have more than 255 arguments.");
+            }
+            argCount++;
+        } while (match(parser, TOKEN_COMMA));
+    }
+
+    consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+    return argCount;
 }
 
 static void and_(Parser* parser, bool canAssign) {
@@ -403,6 +441,32 @@ static void block(Parser* parser) {
     consume(parser, TOKEN_RIGHT_BRACE, "Expect '}' after block");
 }
 
+static void function(Parser* parser, FunctionType type) {
+    Compiler compiler;
+    initCompiler(parser->vm, &compiler, type);
+    compiler.enclosing = &parser->currentCompiler;
+    parser->currentCompiler = compiler;
+
+
+    beginScope(parser);
+
+    consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+    consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(parser, TOKEN_LEFT_BRACE, "Expect '{' before function body");
+    block(parser);
+
+    ObjFunction* function = endCompiler(parser);
+    emitBytes(parser, OP_CONSTANT, makeConstant(parser, OBJ_VAL(function)));
+}
+
+static void funDeclaration(Parser* parser) {
+    uint8_t global = parseVariable(parser, "Expect function name.");
+    markInitialized(&parser->currentCompiler, VAR_READABLE);
+    function(parser, TYPE_FUNCTION);
+    defineVariable(parser, global, VAR_WRITEABLE);
+}
+
 static void varDeclaration(Parser* parser, VarState varState) {
     uint8_t global = parseVariable(parser, "Expect variable name.");
 
@@ -421,6 +485,22 @@ static void printStatement(Parser* parser) {
     consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
     emitByte(parser, OP_PRINT);
 }
+
+static void returnStatement(Parser* parser) {
+    if (parser->current.type == TYPE_SCRIPT) {
+        error(parser, "Can't return from top-level code.");
+    }
+
+    if (match(parser, TOKEN_SEMICOLON)) {
+        emitReturn(parser);
+    } else {
+        expression(parser);
+        consume(parser, TOKEN_SEMICOLON, "Expect ';' after return value.");
+        emitByte(parser, OP_RETURN);
+    }
+}
+
+
 
 static void synchronize(Parser* parser) {
     parser->panicMode = false;
@@ -448,7 +528,9 @@ static void synchronize(Parser* parser) {
 }
 
 static void declaration(Parser* parser) {
-    if (match(parser, TOKEN_VAR)) {
+    if (match(parser, TOKEN_FUN)) {
+        funDeclaration(parser);
+    } else if (match(parser, TOKEN_VAR)) {
         varDeclaration(parser, VAR_WRITEABLE);
     } else if (match(parser, TOKEN_CONST)) {
         varDeclaration(parser, VAR_READABLE);
@@ -558,6 +640,8 @@ static void statement(Parser* parser) {
         forStatement(parser);
     } else if (match(parser, TOKEN_IF)) {
         ifStatement(parser);
+    } else if (match(parser, TOKEN_RETURN)) {
+        returnStatement(parser);
     } else if (match(parser, TOKEN_WHILE)) {
         whileStatement(parser);
     } else if (match(parser, TOKEN_LEFT_BRACE)) {
@@ -609,6 +693,11 @@ static void binary(Parser* parser, bool canAssign) {
     }
 }
 
+static void call(Parser* parser, bool canAssign) {
+    uint8_t argCount = argumentList(parser);
+    emitBytes(parser, OP_CALL, argCount);
+}
+
 static void literal(Parser* parser, bool canAssign) {
     switch (parser->previous.type) {
         case TOKEN_NIL: emitByte(parser, OP_NIL); break;
@@ -620,7 +709,7 @@ static void literal(Parser* parser, bool canAssign) {
 }
 
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN]    = { grouping, NULL,   PREC_NONE },
+    [TOKEN_LEFT_PAREN]    = { grouping, call,   PREC_CALL },
     [TOKEN_RIGHT_PAREN]   = { NULL,     NULL,   PREC_NONE },
     [TOKEN_LEFT_BRACE]    = { NULL,     NULL,   PREC_NONE },
     [TOKEN_RIGHT_BRACE]   = { NULL,     NULL,   PREC_NONE },
@@ -667,14 +756,14 @@ static ParseRule* getRule(TokenType type) {
     return &rules[type];
 }
 
-bool compile(VM* vm, const char* source, Chunk* chunk) {
+ObjFunction* compile(VM* vm, const char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
     Parser parser;
     parser.scanner = &scanner;
     parser.vm = vm;
-    initParser(&parser, chunk);
+    initParser(vm, &parser);
 
     advance(&parser);
     
@@ -682,6 +771,6 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
         declaration(&parser);
     }
     
-    endCompiler(&parser);
-    return !parser.hadError;
+    ObjFunction* function = endCompiler(&parser);
+    return parser.hadError ? NULL : function;
 }
