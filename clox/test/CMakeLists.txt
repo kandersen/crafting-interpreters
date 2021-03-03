@@ -1,3 +1,5 @@
 
-add_executable(CloxTest tests-main.cpp tests-greatfun.cpp)
+add_executable(CloxTest
+        tests-main.cpp
+        tests-common.cpp tests-scanner.cpp)
 target_link_libraries(CloxTest CloxLib Catch2::Catch2)

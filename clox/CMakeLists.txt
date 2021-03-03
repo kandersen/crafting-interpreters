@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.17)
 project(clox)
 
-set(CMAKE_VERBOSE_MAKEFILE 1)
-
 add_subdirectory(dependencies)
 
 enable_testing()
 add_subdirectory(test)
 
 set(LIBRAY_SOURCES
-        lib.h
-        lib.c)
+        common.h
+        scanner.h
+        scanner.c
+        )
 add_library(CloxLib ${LIBRAY_SOURCES})
 target_include_directories(CloxLib
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
