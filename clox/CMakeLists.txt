@@ -1,8 +1,20 @@
 cmake_minimum_required(VERSION 3.17)
-project(clox C)
+project(clox)
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_VERBOSE_MAKEFILE 1)
 
-set(SOURCES main.c)
+add_subdirectory(dependencies)
 
-add_executable(clox ${SOURCES})
+enable_testing()
+add_subdirectory(test)
+
+set(LIBRAY_SOURCES
+        lib.h
+        lib.c)
+add_library(CloxLib ${LIBRAY_SOURCES})
+target_include_directories(CloxLib
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+
+add_executable(clox main.c)
+target_link_libraries(clox CloxLib)
