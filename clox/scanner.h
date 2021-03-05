@@ -39,4 +39,4 @@ typedef struct {
 void initScanner(Scanner* scanner, const char* source);
 Token scanToken(Scanner* scanner);
 
-#endif  
+#endif
