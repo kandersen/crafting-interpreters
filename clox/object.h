@@ -53,6 +53,6 @@ static inline bool isObjType(Value value, ObjType type) {
 
 ObjFunction* newFunction(Obj** objectRoot);
 
-void printObject(Value value);
+void printObject(FILE* out, Value value);
 
 #endif //CLOX_OBJECT_H

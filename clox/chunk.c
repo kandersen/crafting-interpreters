@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "chunk.h"
 #include "value.h"
 #include "memory.h"

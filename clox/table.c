@@ -3,7 +3,6 @@
 #include "memory.h"
 #include "table.h"
 #include "value.h"
-#include "object.h"
 
 #define TABLE_MAX_LOAD 0.75
 

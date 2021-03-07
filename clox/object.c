@@ -16,25 +16,25 @@ static Obj* allocateObject(Obj** objectRoot, size_t size, ObjType type) {
 }
 
 
-static void printFunction(ObjFunction* function) {
+static void printFunction(FILE* out, ObjFunction* function) {
     if (function->name == NULL ) {
-        printf("<script>");
+        fprintf(out, "<script>");
         return;
     }
-    printf("<fn %s>", function->name->chars);
+    fprintf(out, "<fn %s>", function->name->chars);
 }
 
-void printObject(Value value) {
+void printObject(FILE* out, Value value) {
     switch(OBJ_TYPE(value)) {
         case OBJ_FUNCTION:
-            printFunction(AS_FUNCTION(value));
+            printFunction(out, AS_FUNCTION(value));
             break;
         case OBJ_NATIVE: {
-            printf("<native fn>");
+            fprintf(out, "<native fn>");
             break;
         }
         case OBJ_STRING:
-            printf("%s", AS_CSTRING(value));
+            fprintf(out, "%s", AS_CSTRING(value));
             break;
     }
 }

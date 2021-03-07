@@ -1,7 +1,3 @@
-//
-// Created by Kristoffer Just Arndal Andersen on 04/03/2021.
-//
-
 #ifndef CLOX_VM_H
 #define CLOX_VM_H
 

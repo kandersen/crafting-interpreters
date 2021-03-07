@@ -1,6 +1,7 @@
 #ifndef CLOX_VALUE_H
 #define CLOX_VALUE_H
 
+#include <stdio.h>
 #include "common.h"
 
 typedef struct sObj Obj;
@@ -51,6 +52,6 @@ void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);
 void freeValueArray(ValueArray* array);
 bool valuesEqual(Value a, Value b);
-void printValue(Value value);
+void printValue(FILE* out, Value value);
 
 #endif //CLOX_VALUE_H

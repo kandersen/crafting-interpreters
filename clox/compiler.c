@@ -1,7 +1,3 @@
-//
-// Created by Kristoffer Just Arndal Andersen on 05/03/2021.
-//
-
 #include <stdio.h>
 #include "compiler.h"
 #include "scanner.h"
@@ -92,7 +88,6 @@ static void errorAtCurrent(Compiler* compiler) {
 //    errorAt(compiler, &compiler->previous, message);
 //}
 
-
 static void advance(Compiler* compiler) {
     compiler->previous = compiler->current;
 
@@ -103,6 +98,17 @@ static void advance(Compiler* compiler) {
         errorAtCurrent(compiler);
     }
 }
+
+static bool check(Compiler* compiler, TokenType type) {
+    return compiler->current.type == type;
+}
+
+static bool match(Compiler* compiler, TokenType type) {
+    if (!check(compiler, type)) return false;
+    advance(compiler);
+    return true;
+}
+
 
 static Chunk* currentChunk(Compiler* compiler) {
     return &compiler->context->function->chunk;
@@ -122,7 +128,7 @@ static ObjFunction* endCompiler(Compiler* compiler) {
     ObjFunction* function = compiler->context->function;
 #ifdef DEBUG_PRINT_CODE
     if (!compiler->hadError) {
-        disassembleChunk(currentChunk(compiler), function->name != NULL ? function->name->chars : "<script>");
+        disassembleChunk(stdout, currentChunk(compiler), function->name != NULL ? function->name->chars : "<script>");
     }
 #endif
     compiler->context = compiler->context->enclosing;
@@ -144,9 +150,10 @@ ObjFunction* compile(Obj** objectRoot, const char* source) {
 
     advance(&compiler);
 
-//    while (!match(&compiler, TOKEN_EOF)) {
+    while (!match(&compiler, TOKEN_EOF)) {
+        advance(&compiler);
 //        declaration(&compiler);
-//    }
+    }
 
     ObjFunction* function = endCompiler(&compiler);
     return compiler.hadError ? NULL : function;
