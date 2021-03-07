@@ -14,16 +14,24 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
+    Table names;
+    uint8_t count;
+    Value values[UINT8_COUNT];
+    ValueArray states;
+} Globals;
+
+typedef struct {
     CallFrame frames[FRAMES_MAX];
     int frameCount;
 
     Value stack[STACK_MAX];
     Value* stackTop;
-    Table globalNames;
-    ValueArray globalValues;
     Table strings;
-
+    Globals globals;
     Obj* objects;
+
+    FILE* outPipe;
+    FILE* errPipe;
 } VM;
 
 typedef enum {
@@ -31,6 +39,9 @@ typedef enum {
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR
 } InterpretResult;
+
+void initGlobals(Globals* globals);
+void freeGlobals(Globals* globals);
 
 void initVM(VM* vm);
 void freeVM(VM* vm);

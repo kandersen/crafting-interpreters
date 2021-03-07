@@ -1,3 +1,4 @@
+#include <libc.h>
 #include "catch2/catch.hpp"
 
 extern "C" {
@@ -8,13 +9,23 @@ extern "C" {
 #include "file.h"
 }
 
+TEST_CASE("Compilation Error","[compiler]") {
+    const std::string compilationErrorTests[] = {
+
+    };
+    for (const auto &testName : compilationErrorTests) {
+        DYNAMIC_SECTION(testName) {
+            CHECK(1 == 1);
+        }
+    }
+}
+
 TEST_CASE("Disassembly Dump Tests","[compiler]") {
-    const std::string disassemblyDumpTests[] =
-            {
-                    "empty",
-                    "print"
-            };
-    const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDumpTest/";
+    const std::string disassemblyDumpTests[] = {
+            "empty",
+            "print"
+    };
+    const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDump/";
 
     for (const auto &testName : disassemblyDumpTests) {
         DYNAMIC_SECTION(testName) {
@@ -23,11 +34,13 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
 
             char *testSource = readFile(sourcePath.c_str());
             Obj *root = nullptr;
-            ObjFunction *compilationResult = compile(&root, testSource);
+            Table strings;
+            Globals globals;
+            initGlobals(&globals);
+            ObjFunction *compilationResult = compile(&strings, &globals, &root, testSource);
 
             FILE *tmp = tmpfile();
-            disassembleChunk(tmp, &compilationResult->chunk,
-                             compilationResult->name != nullptr ? compilationResult->name->chars : "<script>");
+            disassembleChunk(tmp, &compilationResult->chunk,compilationResult->name != nullptr ? compilationResult->name->chars : "<script>");
 
             char *actual = readFileHandle(tmp, "actual");
             char *expected = readFile(expectationsPath.c_str());
@@ -36,6 +49,7 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             free(expected);
             free(actual);
             fclose(tmp);
+            freeGlobals(&globals);
             freeObjects(root);
             free(testSource);
         }

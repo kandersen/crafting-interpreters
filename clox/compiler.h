@@ -2,7 +2,8 @@
 #define CLOX_COMPILER_H
 
 #include "object.h"
+#include "vm.h"
 
-ObjFunction* compile(Obj** objectRoot, const char* source);
+ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const char* source);
 
 #endif //CLOX_COMPILER_H

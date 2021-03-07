@@ -2,6 +2,7 @@
 #define CLOX_OBJECT_H
 
 #include "chunk.h"
+#include "table.h"
 
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
 
@@ -52,6 +53,8 @@ static inline bool isObjType(Value value, ObjType type) {
 }
 
 ObjFunction* newFunction(Obj** objectRoot);
+ObjString* copyString(Table* strings, Obj** objectRoot, const char* chars, int length);
+ObjString* takeString(Table* strings, Obj** objectRoot, char* chars, int length);
 
 void printObject(FILE* out, Value value);
 
