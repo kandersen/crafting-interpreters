@@ -1,0 +1,2 @@
+var y = "OK";
+print(y);

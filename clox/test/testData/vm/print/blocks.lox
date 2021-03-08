@@ -1,0 +1,10 @@
+{
+  var x = "OK";
+  {
+     var y;
+  }
+  {
+     var z = x;
+     print(z);
+  }
+}

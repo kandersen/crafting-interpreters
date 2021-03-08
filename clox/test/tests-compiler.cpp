@@ -23,7 +23,9 @@ TEST_CASE("Compilation Error","[compiler]") {
 TEST_CASE("Disassembly Dump Tests","[compiler]") {
     const std::string disassemblyDumpTests[] = {
             "empty",
-            "print"
+            "print",
+            "globalVar",
+            "blocks"
     };
     const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDump/";
 
@@ -35,6 +37,7 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             char *testSource = readFile(sourcePath.c_str());
             Obj *root = nullptr;
             Table strings;
+            initTable(&strings);
             Globals globals;
             initGlobals(&globals);
             ObjFunction *compilationResult = compile(&strings, &globals, &root, testSource);

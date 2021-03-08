@@ -53,6 +53,8 @@ static inline bool isObjType(Value value, ObjType type) {
 }
 
 ObjFunction* newFunction(Obj** objectRoot);
+ObjNative* newNative(Obj**, NativeFn function);
+
 ObjString* copyString(Table* strings, Obj** objectRoot, const char* chars, int length);
 ObjString* takeString(Table* strings, Obj** objectRoot, char* chars, int length);
 

@@ -248,41 +248,292 @@ static void printStatement(Compiler* compiler) {
     emitByte(compiler, OP_PRINT);
 }
 
+static void beginScope(Compiler* compiler) {
+    compiler->context->scopeDepth++;
+}
+
+static void endScope(Compiler* compiler) {
+    compiler->context->scopeDepth--;
+
+    while (compiler->context->localCount > 0 &&
+           compiler->context->locals[compiler->context->localCount - 1].depth > compiler->context->scopeDepth) {
+        emitByte(compiler, OP_POP); //TODO(kjaa): add an OP_POPN, instead of many at a time.
+        compiler->context->localCount--;
+    }
+}
+
+static void block(Compiler* compiler) {
+    while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+        declaration(compiler);
+    }
+
+    consume(compiler, TOKEN_RIGHT_BRACE, "Expect '}' after block");
+}
+
+static void whileStatement(Compiler* compiler) {
+    int loopStart = currentChunk(compiler)->count;
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression(compiler);
+    consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int exitJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+
+    emitByte(compiler, OP_POP);
+    statement(compiler);
+
+    emitLoop(compiler, loopStart);
+
+    patchJump(compiler, exitJump);
+    emitByte(compiler, OP_POP);
+}
+
+static void returnStatement(Compiler* compiler) {
+    if (compiler->current.type == TYPE_SCRIPT) {
+        error(compiler, "Can't return from top-level code.");
+    }
+
+    if (match(compiler, TOKEN_SEMICOLON)) {
+        emitReturn(compiler);
+    } else {
+        expression(compiler);
+        consume(compiler, TOKEN_SEMICOLON, "Expect ';' after return value.");
+        emitByte(compiler, OP_RETURN);
+    }
+}
+
+static void expressionStatement(Compiler* compiler) {
+    expression(compiler);
+    consume(compiler, TOKEN_SEMICOLON, "Expect ';' after expression.");
+    emitByte(compiler, OP_POP);
+}
+
+static bool identifiersEqual(Token* a, Token* b) {
+    if (a->length != b->length) return false;
+    return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static void addLocal(Compiler* compiler, Token name) {
+    if (compiler->context->localCount == UINT8_COUNT) {
+        error(compiler, "Too many local variables in function.");
+        return;
+    }
+
+    Local* local = &compiler->context->locals[compiler->context->localCount++];
+    local->name = name;
+    local->depth = compiler->context->scopeDepth;
+    local->state = VAR_UNINITIALIZED;
+}
+
+
+static void declareVariable(Compiler* compiler) {
+    if (compiler->context->scopeDepth == 0) return;
+
+    Token* name = &compiler->previous;
+    for (int i = compiler->context->localCount - 1; i >= 0; i--) {
+        Local* local = &compiler->context->locals[i];
+        if (local->depth != -1 && local->depth < compiler->context->scopeDepth) {
+            break;
+        }
+        if (identifiersEqual(name, &local->name)) {
+            error(compiler, "Already variable with this name in this scope.");
+        }
+    }
+
+    addLocal(compiler, *name);
+}
+
+static uint8_t identifierConstant(Compiler* compiler, Token* name) {
+    Value index;
+    ObjString* identifier = copyString(compiler->internedStrings, compiler->objectRoot, name->start, name->length);
+    if (tableGet(&compiler->globals->names, identifier, &index)) {
+        return (uint8_t)AS_NUMBER(index);
+    }
+
+    uint8_t newIndex = (uint8_t)compiler->globals->count++;
+    compiler->globals->values[newIndex] = UNDEFINED_VAL;
+
+    tableSet(&compiler->globals->names, identifier, NUMBER_VAL((double)newIndex));
+    return newIndex;
+}
+
+
+static uint8_t parseVariable(Compiler* compiler, const char* errorMessage) {
+    consume(compiler, TOKEN_IDENTIFIER, errorMessage);
+
+    declareVariable(compiler);
+    if (compiler->context->scopeDepth > 0) return 0;
+
+    return identifierConstant(compiler, &compiler->previous);
+}
+
+static void markInitialized(CompilationContext* context, VarState varState) {
+    if (context->scopeDepth == 0) return;
+    context->locals[context->localCount - 1].state = varState;
+}
+
+static void defineVariable(Compiler* compiler, uint8_t global, VarState varState) {
+    // If Local Variable
+    if (compiler->context->scopeDepth > 0) {
+        markInitialized(compiler->context, varState);
+        return;
+    }
+    // Else, global variable
+    compiler->context->globalStates[global] = varState;
+    emitBytes(compiler, OP_DEFINE_GLOBAL, global);
+}
+
+static void varDeclaration(Compiler* compiler, VarState varState) {
+    uint8_t global = parseVariable(compiler, "Expect variable name.");
+
+    if (match(compiler, TOKEN_EQUAL)) {
+        expression(compiler);
+    } else {
+        emitByte(compiler, OP_NIL);
+    }
+    consume(compiler, TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+    defineVariable(compiler, global, varState);
+}
+
+static void forStatement(Compiler* compiler) {
+    beginScope(compiler);
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    if (match(compiler, TOKEN_SEMICOLON)) {
+        // No initializer;
+    } else if (match(compiler, TOKEN_VAR)) {
+        varDeclaration(compiler, VAR_WRITEABLE);
+    } else {
+        expressionStatement(compiler);
+    }
+    consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
+
+    int loopStart = currentChunk(compiler)->count;
+
+    int exitJump = -1;
+    if (!match(compiler, TOKEN_SEMICOLON)) {
+        expression(compiler);
+        consume(compiler, TOKEN_SEMICOLON, "Expect ';' after loop condition");
+
+        exitJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+        emitByte(compiler, OP_POP);
+    }
+
+    consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
+
+    if (!match(compiler, TOKEN_RIGHT_PAREN)) {
+        int bodyJump = emitJump(compiler, OP_JUMP);
+
+        int incrementStart = currentChunk(compiler)->count;
+        expression(compiler);
+        emitByte(compiler, OP_POP);
+        consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        emitLoop(compiler, loopStart);
+        loopStart = incrementStart;
+        patchJump(compiler, bodyJump);
+    }
+
+    statement(compiler);
+
+    emitLoop(compiler, loopStart);
+
+    if (exitJump != -1) {
+        patchJump(compiler, exitJump);
+        emitByte(compiler, OP_POP);
+    }
+
+    endScope(compiler);
+}
+
+static void ifStatement(Compiler* compiler) {
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    expression(compiler);
+    consume(compiler, TOKEN_RIGHT_PAREN, "expect ')' after condition.");
+
+    int thenJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+    emitByte(compiler, OP_POP);
+    statement(compiler);
+
+    int elseJump = emitJump(compiler, OP_JUMP);
+    patchJump(compiler, thenJump);
+    emitByte(compiler, OP_POP);
+
+    if (match(compiler, TOKEN_ELSE)) statement(compiler);
+    patchJump(compiler, elseJump);
+}
+
 static void statement(Compiler* compiler) {
     if (match(compiler, TOKEN_PRINT)) {
         printStatement(compiler);
+    } else if (match(compiler, TOKEN_FOR)) {
+        forStatement(compiler);
+    } else if (match(compiler, TOKEN_IF)) {
+        ifStatement(compiler);
+    } else if (match(compiler, TOKEN_RETURN)) {
+        returnStatement(compiler);
+    } else if (match(compiler, TOKEN_WHILE)) {
+        whileStatement(compiler);
+    } else if (match(compiler, TOKEN_LEFT_BRACE)) {
+        beginScope(compiler);
+        block(compiler);
+        endScope(compiler);
+    } else {
+        expressionStatement(compiler);
     }
-//    else if (match(compiler, TOKEN_FOR)) {
-//        forStatement(compiler);
-//    } else if (match(compiler, TOKEN_IF)) {
-//        ifStatement(compiler);
-//    } else if (match(compiler, TOKEN_RETURN)) {
-//        returnStatement(compiler);
-//    } else if (match(compiler, TOKEN_WHILE)) {
-//        whileStatement(compiler);
-//    } else if (match(compiler, TOKEN_LEFT_BRACE)) {
-//        beginScope(compiler);
-//        block(compiler);
-//        endScope(compiler);
-//    } else {
-//        expressionStatement(compiler);
-//    }
+}
+
+static ObjFunction* endCompiler(Compiler* compiler) {
+    emitReturn(compiler);
+    ObjFunction* function = compiler->context->function;
+#ifdef DEBUG_PRINT_CODE
+    if (!compiler->hadError) {
+        disassembleChunk(stdout, currentChunk(compiler), function->name != NULL ? function->name->chars : "<script>");
+    }
+#endif
+    compiler->context = compiler->context->enclosing;
+    return function;
+}
+
+static void function(Compiler* compiler, FunctionType type) {
+    CompilationContext context;
+    initCompilationContext(compiler->objectRoot, &context, type);
+    context.enclosing = compiler->context;
+    compiler->context = &context;
+
+    beginScope(compiler);
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+    consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before function body");
+    block(compiler);
+
+    ObjFunction* function = endCompiler(compiler);
+    emitBytes(compiler, OP_CONSTANT, makeConstant(compiler, OBJ_VAL(function)));
+}
+
+static void funDeclaration(Compiler* compiler) {
+    uint8_t global = parseVariable(compiler, "Expect function name.");
+    markInitialized(compiler->context, VAR_READABLE);
+    function(compiler, TYPE_FUNCTION);
+    defineVariable(compiler, global, VAR_WRITEABLE);
 }
 
 static void declaration(Compiler* compiler) {
-//    if (match(compiler, TOKEN_FUN)) {
-//        funDeclaration(compiler);
-//    } else if (match(compiler, TOKEN_VAR)) {
-//        varDeclaration(compiler, VAR_WRITEABLE);
-//    } else if (match(compiler, TOKEN_CONST)) {
-//        varDeclaration(compiler, VAR_READABLE);
-//    } else {
+    if (match(compiler, TOKEN_FUN)) {
+        funDeclaration(compiler);
+    } else if (match(compiler, TOKEN_VAR)) {
+        varDeclaration(compiler, VAR_WRITEABLE);
+    } else if (match(compiler, TOKEN_CONST)) {
+        varDeclaration(compiler, VAR_READABLE);
+    } else {
         statement(compiler);
-//    }
+    }
 
     if (compiler->panicMode) synchronize(compiler);
 }
-
 
 static void grouping(Compiler* compiler, bool canAssign) {
     expression(compiler);
@@ -378,24 +629,6 @@ static void literal(Compiler* compiler, bool canAssign) {
     }
 }
 
-static uint8_t identifierConstant(Compiler* compiler, Token* name) {
-    Value index;
-    ObjString* identifier = copyString(compiler->internedStrings, compiler->objectRoot, name->start, name->length);
-    if (tableGet(&compiler->globals->names, identifier, &index)) {
-        return (uint8_t)AS_NUMBER(index);
-    }
-
-    uint8_t newIndex = (uint8_t)compiler->globals->count++;
-    compiler->globals->values[newIndex] = UNDEFINED_VAL;
-
-    tableSet(&compiler->globals->names, identifier, NUMBER_VAL((double)newIndex));
-    return newIndex;
-}
-
-static bool identifiersEqual(Token* a, Token* b) {
-    if (a->length != b->length) return false;
-    return memcmp(a->start, b->start, a->length) == 0;
-}
 
 static int resolveLocal(Compiler* compiler, Token* name) {
     CompilationContext* context = compiler->context;
@@ -524,19 +757,6 @@ static ParseRule* getRule(TokenType type) {
 
 static void expression(Compiler* compiler) {
     parsePrecendence(compiler, PREC_ASSIGNMENT);
-}
-
-
-static ObjFunction* endCompiler(Compiler* compiler) {
-    emitReturn(compiler);
-    ObjFunction* function = compiler->context->function;
-#ifdef DEBUG_PRINT_CODE
-    if (!compiler->hadError) {
-        disassembleChunk(stdout, currentChunk(compiler), function->name != NULL ? function->name->chars : "<script>");
-    }
-#endif
-    compiler->context = compiler->context->enclosing;
-    return function;
 }
 
 ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const char* source) {

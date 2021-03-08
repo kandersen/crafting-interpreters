@@ -8,8 +8,13 @@ extern "C" {
 TEST_CASE("Print Tests","[vm]") {
     const std::string printTests[] =
             {
+//                    "break-while",
                     "empty",
-                    "print"
+                    "print",
+                    "blocks",
+                    "globalVars",
+                    "var",
+                    "scopes"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 

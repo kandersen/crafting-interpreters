@@ -1,0 +1,11 @@
+== <script> ==
+0000    2 OP_CONSTANT         0 '0'
+0002    4 OP_NIL
+0003    5 OP_POP
+0004    7 OP_GET_LOCAL        1
+0006    8 OP_GET_LOCAL        2
+0008    | OP_PRINT
+0009    9 OP_POP
+0010   10 OP_POP
+0011    | OP_NIL
+0012    | OP_RETURN

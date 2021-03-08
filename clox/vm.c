@@ -142,8 +142,7 @@ static InterpretResult run(VM* vm) {
         disassembleInstruction(stdout, &frame->function->chunk, (int) (frame->ip - frame->function->chunk.code));
 #endif
 
-        uint8_t instruction;
-        switch (instruction = READ_BYTE()) {
+        switch (READ_BYTE()) {
             case OP_CONSTANT: {
                 Value constant = READ_CONSTANT();
                 push(vm, constant);
@@ -300,6 +299,18 @@ void initGlobals(Globals* globals) {
     initTable(&globals->names);
     globals->count = 0;
     initValueArray(&globals->states);
+}
+
+static Value clockNative(int argCount, Value* args) {
+    return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+}
+
+static void defineNative(VM* vm, const char* name, NativeFn function) {
+    push(vm, OBJ_VAL((copyString(vm, name, (int)strlen(name)))));
+    push(vm, OBJ_VAL(newNative(vm, function)));
+    tableSet(&vm->globalNames, AS_STRING(vm->stack[0]), vm->stack[1]);
+    pop(vm);
+    pop(vm);
 }
 
 void initVM(VM* vm) {

@@ -50,6 +50,12 @@ ObjFunction* newFunction(Obj** objectRoot) {
     return function;
 }
 
+ObjNative* newNative(Obj** objectRoot, NativeFn function) {
+    ObjNative* native = ALLOCATE_OBJ(objectRoot, ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
+}
+
 static ObjString* allocateString(Table* strings, Obj** objectRoot, char* chars, int length, uint32_t hash) {
     ObjString* string = ALLOCATE_OBJ(objectRoot, ObjString, OBJ_STRING);
     string->length = length;
