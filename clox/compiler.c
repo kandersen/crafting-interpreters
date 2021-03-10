@@ -352,6 +352,7 @@ static uint8_t identifierConstant(Compiler* compiler, Token* name) {
 
     uint8_t newIndex = (uint8_t)compiler->globals->count++;
     compiler->globals->values[newIndex] = UNDEFINED_VAL;
+    compiler->globals->identifiers[newIndex] = identifier;
 
     tableSet(&compiler->globals->names, identifier, NUMBER_VAL((double)newIndex));
     return newIndex;
@@ -484,7 +485,7 @@ static void statement(Compiler* compiler) {
     }
 }
 
-static ObjFunction* endCompiler(Compiler* compiler) {
+static ObjFunction* endCompilation(Compiler* compiler) {
     emitReturn(compiler);
     ObjFunction* function = compiler->context->function;
 #ifdef DEBUG_PRINT_CODE
@@ -496,28 +497,40 @@ static ObjFunction* endCompiler(Compiler* compiler) {
     return function;
 }
 
-static void function(Compiler* compiler, FunctionType type) {
+static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType type) {
     CompilationContext context;
     initCompilationContext(compiler->objectRoot, &context, type);
     context.enclosing = compiler->context;
     compiler->context = &context;
+    context.function->name = compiler->globals->identifiers[globalSlotForName];
 
     beginScope(compiler);
 
     consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+    if (!check(compiler, TOKEN_RIGHT_PAREN)) {
+        do {
+            context.function->arity++;
+            if (context.function->arity > 255) {
+                error(compiler, "Can't have more than 255 parameters.");
+            }
+
+            uint8_t paramConstant = parseVariable(compiler, "Expect parameter name.");
+            defineVariable(compiler, paramConstant, VAR_READABLE);
+        } while (match(compiler, TOKEN_COMMA));
+    }
     consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
     consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before function body");
     block(compiler);
 
-    ObjFunction* function = endCompiler(compiler);
+    ObjFunction* function = endCompilation(compiler);
     emitBytes(compiler, OP_CONSTANT, makeConstant(compiler, OBJ_VAL(function)));
 }
 
 static void funDeclaration(Compiler* compiler) {
     uint8_t global = parseVariable(compiler, "Expect function name.");
     markInitialized(compiler->context, VAR_READABLE);
-    function(compiler, TYPE_FUNCTION);
+    function(compiler, global, TYPE_FUNCTION);
     defineVariable(compiler, global, VAR_WRITEABLE);
 }
 
@@ -781,7 +794,7 @@ ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const c
         declaration(&compiler);
     }
 
-    ObjFunction* function = endCompiler(&compiler);
+    ObjFunction* function = endCompilation(&compiler);
     return compiler.hadError ? NULL : function;
 }
 

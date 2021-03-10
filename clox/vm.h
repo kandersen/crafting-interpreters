@@ -18,6 +18,7 @@ typedef struct {
     uint8_t count;
     Value values[UINT8_COUNT];
     ValueArray states;
+    ObjString* identifiers[UINT8_COUNT];
 } Globals;
 
 typedef struct {

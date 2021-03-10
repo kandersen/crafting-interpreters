@@ -14,7 +14,11 @@ TEST_CASE("Print Tests","[vm]") {
                     "blocks",
                     "globalVars",
                     "var",
-                    "scopes"
+                    "scopes",
+                    "expression",
+                    "breakfast",
+                    "fib35"
+//                    "dynamic-scope"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 
@@ -28,6 +32,7 @@ TEST_CASE("Print Tests","[vm]") {
             VM vm;
             initVM(&vm);
             vm.outPipe = tmp;
+            vm.errPipe = stdout;
 
             char *testSource = readFile(sourcePath.c_str());
             InterpretResult result = interpret(&vm, testSource);

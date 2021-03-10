@@ -50,8 +50,9 @@ ObjFunction* newFunction(Obj** objectRoot) {
     return function;
 }
 
-ObjNative* newNative(Obj** objectRoot, NativeFn function) {
+ObjNative* newNative(Obj** objectRoot, int arity, NativeFn function) {
     ObjNative* native = ALLOCATE_OBJ(objectRoot, ObjNative, OBJ_NATIVE);
+    native->arity = arity;
     native->function = function;
     return native;
 }

@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include "vm.h"
 #include "memory.h"
@@ -91,17 +92,29 @@ static bool call(VM* vm, ObjFunction* function, int argCount) {
     return true;
 }
 
+static bool nativeCall(VM* vm, ObjNative* nativeObj, int argCount) {
+    if (argCount != nativeObj->arity) {
+        runtimeError(vm, "Expected %d arguments but got %d.", nativeObj->arity, argCount);
+        return false;
+    }
+
+    NativeFn native = nativeObj->function;
+    Value result;
+    if(!native(argCount, vm->stackTop - argCount, &result)) {
+        runtimeError(vm, "Error in native call.");
+    }
+    vm->stackTop -= argCount + 1;
+    push(vm, result);
+    return true;
+}
+
 static bool callValue(VM* vm, Value callee, int argCount) {
     if (IS_OBJ(callee))  {
         switch (OBJ_TYPE(callee)) {
             case OBJ_FUNCTION:
                 return call(vm, AS_FUNCTION(callee), argCount);
             case OBJ_NATIVE: {
-                NativeFn native = AS_NATIVE(callee);
-                Value result = native(argCount, vm->stackTop - argCount);
-                vm->stackTop -= argCount + 1;
-                push(vm, result);
-                return true;
+                return nativeCall(vm, AS_NATIVE(callee), argCount);
             }
             default:
                 break;
@@ -301,14 +314,24 @@ void initGlobals(Globals* globals) {
     initValueArray(&globals->states);
 }
 
-static Value clockNative(int argCount, Value* args) {
-    return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+static int clockNative(int argCount, Value* args, Value* result) {
+    *result = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+    return true;
 }
+#pragma clang diagnostic pop
 
-static void defineNative(VM* vm, const char* name, NativeFn function) {
-    push(vm, OBJ_VAL((copyString(vm, name, (int)strlen(name)))));
-    push(vm, OBJ_VAL(newNative(vm, function)));
-    tableSet(&vm->globalNames, AS_STRING(vm->stack[0]), vm->stack[1]);
+static void defineNative(VM* vm, const char* name, int arity, NativeFn function) {
+    ObjString* identifier = copyString(&vm->strings, &vm->objects, name, (int) strlen(name));
+    push(vm, OBJ_VAL(identifier));
+    push(vm, OBJ_VAL(newNative(&vm->objects, arity, function)));
+
+    uint8_t newIndex = (uint8_t)vm->globals.count++;
+    vm->globals.values[newIndex] = vm->stack[1];
+    vm->globals.identifiers[newIndex] = identifier;
+    tableSet(&vm->globals.names, AS_STRING(vm->stack[0]), NUMBER_VAL((double)newIndex));
+
     pop(vm);
     pop(vm);
 }
@@ -320,7 +343,7 @@ void initVM(VM* vm) {
     initGlobals(&vm->globals);
     vm->outPipe = stdout;
     vm->errPipe = stderr;
-//    defineNative(vm, "clock", clockNative);
+    defineNative(vm, "clock", 0, clockNative);
 }
 
 void freeGlobals(Globals* globals) {
