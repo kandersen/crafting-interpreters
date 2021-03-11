@@ -17,7 +17,8 @@ TEST_CASE("Print Tests","[vm]") {
                     "scopes",
                     "expression",
                     "breakfast",
-                    "fib35"
+                    "fib35",
+                    "outer"
 //                    "dynamic-scope"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
