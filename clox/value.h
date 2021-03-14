@@ -2,12 +2,8 @@
 #define CLOX_VALUE_H
 
 #include <stdio.h>
-#include "common.h"
 
-typedef struct sObj Obj;
-typedef struct sObjString ObjString;
-typedef struct sObjFunction ObjFunction;
-typedef struct sObjNative ObjNative;
+#include "common.h"
 
 typedef enum {
     VAL_BOOL,
@@ -16,6 +12,9 @@ typedef enum {
     VAL_OBJ,
     VAL_UNDEFINED
 } ValueType;
+
+typedef struct Obj Obj;
+typedef struct ObjString ObjString;
 
 typedef struct {
     ValueType type;

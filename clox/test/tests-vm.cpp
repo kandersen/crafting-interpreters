@@ -18,8 +18,15 @@ TEST_CASE("Print Tests","[vm]") {
                     "expression",
                     "breakfast",
                     "fib35",
-                    "outer"
-//                    "dynamic-scope"
+                    "outside",
+                    "outer",
+                    "dynamic-scope",
+                    "closure",
+                    "makeClosure",
+                    "upvalue",
+                    "flattening",
+                    "devious",
+                    "upvalue-disassembly"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 

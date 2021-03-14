@@ -1,0 +1,32 @@
+== innter ==
+0000    8 OP_GET_UPVALUE      1
+0002    | OP_GET_UPVALUE      1
+0004    | OP_ADD
+0005    | OP_GET_UPVALUE      1
+0007    | OP_ADD
+0008    | OP_GET_UPVALUE      1
+0010    | OP_ADD
+0011    | OP_PRINT
+0012    9 OP_NIL
+0013    | OP_RETURN
+== middle ==
+0000    5 OP_CONSTANT         0 '3'
+0002    6 OP_CONSTANT         1 '4'
+0004    9 OP_CLOSURE          2 <fn inner>
+0006      |                     upvalue 0
+0008      |                     local 1
+0010      |                     upvalue 1
+0012      |                     local 2
+0014   10 OP_NIL
+0015    | OP_RETURN
+== outer ==
+0000    2 OP_CONSTANT         0 '1'
+0002    3 OP_CONSTANT         1 '2'
+0004   10 OP_CLOSURE          2 <fn outer>
+0006   11 OP_NIL
+0007    | OP_RETURN
+== <script> ==
+0000   11 OP_CLOSURE          0 <fn outer>
+0002    | OP_DEFINE_GLOBAL    0
+0004   12 OP_NIL
+0005    | OP_RETURN

@@ -27,6 +27,11 @@ typedef struct {
     VarState state;
 } Local;
 
+typedef struct {
+    uint8_t index;
+    bool isLocal;
+} Upvalue;
+
 typedef struct CompilationContext {
     struct CompilationContext* enclosing;
     ObjFunction* function;
@@ -34,8 +39,10 @@ typedef struct CompilationContext {
 
     Local locals[UINT8_COUNT];
     int localCount;
+    Upvalue upvalues[UINT8_COUNT];
     int scopeDepth;
     VarState globalStates[UINT8_COUNT];
+
 } CompilationContext;
 
 typedef struct {
@@ -524,7 +531,11 @@ static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType
     block(compiler);
 
     ObjFunction* function = endCompilation(compiler);
-    emitBytes(compiler, OP_CONSTANT, makeConstant(compiler, OBJ_VAL(function)));
+    emitBytes(compiler, OP_CLOSURE, makeConstant(compiler, OBJ_VAL(function)));
+    for (int i = 0; i < function->upvalueCount; i++) {
+        emitByte(compiler, context.upvalues[i].isLocal ? 1 : 0);
+        emitByte(compiler, context.upvalues[i].index);
+    }
 }
 
 static void funDeclaration(Compiler* compiler) {
@@ -643,8 +654,7 @@ static void literal(Compiler* compiler, bool canAssign) {
 }
 
 
-static int resolveLocal(Compiler* compiler, Token* name) {
-    CompilationContext* context = compiler->context;
+static int resolveLocal(Compiler* compiler, CompilationContext* context, Token* name) {
     for (int i = context->localCount - 1; i >= 0; i--) {
         Local* local = &context->locals[i];
         if (identifiersEqual(name, &local->name)) {
@@ -657,14 +667,53 @@ static int resolveLocal(Compiler* compiler, Token* name) {
     return -1;
 }
 
+static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t index, bool isLocal) {
+    int upvalueCount = context->function->upvalueCount;
+
+    for (int i = 0; i < upvalueCount; i++) {
+        Upvalue* upvalue = &context->upvalues[i];
+        if (upvalue->index == index && upvalue->isLocal == isLocal) {
+            return i;
+        }
+    }
+
+    if (upvalueCount == UINT8_COUNT) {
+        error(compiler, "Too many closure variables in function.");
+        return 0;
+    }
+
+    context->upvalues[upvalueCount].isLocal = isLocal;
+    context->upvalues[upvalueCount].index = index;
+    return context->function->upvalueCount++;
+}
+
+static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token* name) {
+    if (context->enclosing == NULL) return -1;
+
+    int local = resolveLocal(compiler, context->enclosing, name);
+    if (local != -1) {
+        return addUpvalue(compiler, compiler->context, (uint8_t)local, true);
+    }
+
+    int upvalue = resolveUpvalue(compiler, context->enclosing, name);
+    if (upvalue != -1) {
+        return addUpvalue(compiler, compiler->context, (uint8_t)upvalue, false);
+    }
+
+    return -1;
+}
+
 static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     uint8_t getOp, setOp;
     VarState varState;
-    int arg = resolveLocal(compiler, &name);
+    int arg = resolveLocal(compiler, compiler->context, &name);
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
         varState = compiler->context->locals[arg].state;
+    } else if ((arg = resolveUpvalue(compiler, compiler->context, &name) != -1)) {
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
     } else {
         arg = identifierConstant(compiler, &name);
         getOp = OP_GET_GLOBAL;

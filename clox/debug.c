@@ -2,6 +2,7 @@
 
 #include "debug.h"
 #include "value.h"
+#include "object.h"
 
 static int simpleInstruction(FILE* out, const char* name, int offset) {
     fprintf(out, "%s\n", name);
@@ -63,11 +64,15 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
         case OP_SET_LOCAL:
             return byteInstruction(out, "OP_SET_LOCAL", chunk, offset);
         case OP_GET_GLOBAL:
-            return constantInstruction(out, "OP_GET_GLOBAL", chunk, offset);
+            return byteInstruction(out, "OP_GET_GLOBAL", chunk, offset);
         case OP_DEFINE_GLOBAL:
-            return constantInstruction(out, "OP_DEFINE_GLOBAL", chunk, offset);
+            return byteInstruction(out, "OP_DEFINE_GLOBAL", chunk, offset);
         case OP_SET_GLOBAL:
-            return constantInstruction(out, "OP_SET_GLOBAL", chunk, offset);
+            return byteInstruction(out, "OP_SET_GLOBAL", chunk, offset);
+        case OP_GET_UPVALUE:
+            return byteInstruction(out, "OP_GET_UPVALUE", chunk, offset);
+        case OP_SET_UPVALUE:
+            return byteInstruction(out, "OP_SET_UPVALUE", chunk, offset);
         case OP_EQUAL:
             return simpleInstruction(out, "OP_EQUAL", offset);
         case OP_LESS:
@@ -96,6 +101,21 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             return jumpInstruction(out, "OP_LOOP", -1, chunk, offset);
         case OP_CALL:
             return byteInstruction(out, "OP_CALL", chunk, offset);
+        case OP_CLOSURE: {
+            offset++;
+            uint8_t constant = chunk->code[offset++];
+            fprintf(out, "%-16s %4d ", "OP_CLOSURE", constant);
+            printValue(out, chunk->constants.values[constant]);
+            fprintf(out, "\n");
+
+            ObjFunction* function = AS_FUNCTION(chunk->constants.values[constant]);
+            for (int j = 0; j < function->upvalueCount; j++) {
+                int isLocal = chunk->code[offset++];
+                int index = chunk->code[offset++];
+                fprintf(out, "%04d      |                     %s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
+            }
+            return offset;
+        }
         case OP_RETURN:
             return simpleInstruction(out, "OP_RETURN", offset);
         default:

@@ -17,7 +17,6 @@ static Obj* allocateObject(Obj** objectRoot, size_t size, ObjType type) {
     return object;
 }
 
-
 static void printFunction(FILE* out, ObjFunction* function) {
     if (function->name == NULL ) {
         fprintf(out, "<script>");
@@ -38,12 +37,37 @@ void printObject(FILE* out, Value value) {
         case OBJ_STRING:
             fprintf(out, "%s", AS_CSTRING(value));
             break;
+        case OBJ_CLOSURE:
+            printFunction(out, AS_CLOSURE(value)->function);
+            break;
+        case OBJ_UPVALUE:
+            fprintf(out, "upvalue");
+            break;
     }
+}
+
+ObjClosure* newClosure(Obj** objectRoot, ObjFunction* function) {
+    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+    for (int i = 0; i < function->upvalueCount; i++) {
+        upvalues[i] = NULL;
+    }
+
+    ObjClosure* closure  = ALLOCATE_OBJ(objectRoot, ObjClosure, OBJ_CLOSURE);
+    closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalueCount = function->upvalueCount;
+    return closure;
+}
+
+ObjUpvalue* newUpvalue(Obj** objectRoot, Value* slot) {
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(objectRoot, ObjUpvalue, OBJ_UPVALUE);
+    upvalue->location = slot;
+    return upvalue;
 }
 
 ObjFunction* newFunction(Obj** objectRoot) {
     ObjFunction* function = ALLOCATE_OBJ(objectRoot, ObjFunction, OBJ_FUNCTION);
-
+    function->upvalueCount = 0;
     function->arity = 0;
     function->name = NULL;
     initChunk(&function->chunk);

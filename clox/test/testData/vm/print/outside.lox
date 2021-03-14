@@ -1,8 +1,7 @@
-var x = "global";
 fun outer() {
-  var x = "outer";
+  var x = "outside";
   fun inner() {
-      print x;
+    print x;
   }
   inner();
 }
