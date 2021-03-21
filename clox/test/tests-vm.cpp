@@ -25,6 +25,7 @@ TEST_CASE("Print Tests","[vm]") {
                     "closure",
                     "upvalue",
                     "flattening",
+                    "upvalue-assignment",
                     "makeClosure",
                     "devious",
                     "upvalue-disassembly"

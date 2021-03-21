@@ -27,7 +27,8 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             "globalVar",
             "blocks",
             "upvalue-disassembly",
-            "simple-upvalue"
+            "simple-upvalue",
+            "upvalue-assignment"
     };
     const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDump/";
 

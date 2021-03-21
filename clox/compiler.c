@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
     uint8_t index;
     bool isLocal;
+    VarState state;
 } Upvalue;
 
 typedef struct CompilationContext {
@@ -668,7 +669,7 @@ static int resolveLocal(Compiler* compiler, CompilationContext* context, Token* 
     return -1;
 }
 
-static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t index, bool isLocal) {
+static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t index, bool isLocal, VarState varState) {
     int upvalueCount = context->function->upvalueCount;
 
     for (int i = 0; i < upvalueCount; i++) {
@@ -685,6 +686,7 @@ static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t i
 
     context->upvalues[upvalueCount].isLocal = isLocal;
     context->upvalues[upvalueCount].index = index;
+    context->upvalues[upvalueCount].state = varState;
     return context->function->upvalueCount++;
 }
 
@@ -693,12 +695,14 @@ static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token
 
     int local = resolveLocal(compiler, context->enclosing, name);
     if (local != -1) {
-        return addUpvalue(compiler, context, (uint8_t)local, true);
+        VarState varState = context->enclosing->locals[local].state;
+        return addUpvalue(compiler, context, (uint8_t)local, true, varState);
     }
 
     int upvalue = resolveUpvalue(compiler, context->enclosing, name);
     if (upvalue != -1) {
-        return addUpvalue(compiler, context, (uint8_t)upvalue, false);
+        VarState varState = context->enclosing->upvalues[upvalue].state;
+        return addUpvalue(compiler, context, (uint8_t)upvalue, false, varState);
     }
 
     return -1;
@@ -715,6 +719,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     } else if ((arg = resolveUpvalue(compiler, compiler->context, &name)) != -1) {
         getOp = OP_GET_UPVALUE;
         setOp = OP_SET_UPVALUE;
+        varState = compiler->context->upvalues[arg].state;
     } else {
         arg = identifierConstant(compiler, &name);
         getOp = OP_GET_GLOBAL;
