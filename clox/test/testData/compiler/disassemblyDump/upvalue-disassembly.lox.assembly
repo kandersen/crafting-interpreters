@@ -1,4 +1,5 @@
-== innter ==
+===| ASSEMBLY |===
+== inner ==
 0000    8 OP_GET_UPVALUE      1
 0002    | OP_GET_UPVALUE      1
 0004    | OP_ADD
@@ -30,3 +31,9 @@
 0002    | OP_DEFINE_GLOBAL    0
 0004   12 OP_NIL
 0005    | OP_RETURN
+
+===| INTERNED STRINGS |===
+outer
+
+===| GLOBALS |===
+outer

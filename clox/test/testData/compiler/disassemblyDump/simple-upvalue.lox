@@ -1,0 +1,9 @@
+{
+  var x = 100;
+  var y = 10;
+  var z = 1;
+  fun foo() {
+    print(x * z);
+  }
+  foo();
+}

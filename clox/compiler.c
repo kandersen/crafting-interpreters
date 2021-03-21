@@ -539,6 +539,7 @@ static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType
 }
 
 static void funDeclaration(Compiler* compiler) {
+    // TODO(kjaa): WRONG! This assumes all functions are globals.
     uint8_t global = parseVariable(compiler, "Expect function name.");
     markInitialized(compiler->context, VAR_READABLE);
     function(compiler, global, TYPE_FUNCTION);
@@ -692,12 +693,12 @@ static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token
 
     int local = resolveLocal(compiler, context->enclosing, name);
     if (local != -1) {
-        return addUpvalue(compiler, compiler->context, (uint8_t)local, true);
+        return addUpvalue(compiler, context, (uint8_t)local, true);
     }
 
     int upvalue = resolveUpvalue(compiler, context->enclosing, name);
     if (upvalue != -1) {
-        return addUpvalue(compiler, compiler->context, (uint8_t)upvalue, false);
+        return addUpvalue(compiler, context, (uint8_t)upvalue, false);
     }
 
     return -1;
@@ -711,7 +712,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
         varState = compiler->context->locals[arg].state;
-    } else if ((arg = resolveUpvalue(compiler, compiler->context, &name) != -1)) {
+    } else if ((arg = resolveUpvalue(compiler, compiler->context, &name)) != -1) {
         getOp = OP_GET_UPVALUE;
         setOp = OP_SET_UPVALUE;
     } else {

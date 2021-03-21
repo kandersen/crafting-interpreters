@@ -216,12 +216,7 @@ static InterpretResult run(VM* vm) {
             }
             case OP_GET_UPVALUE: {
                 uint8_t slot = READ_BYTE();
-
-                ObjClosure *closure = frame->closure;
-                ObjUpvalue **upvalues = closure->upvalues;
-                ObjUpvalue *upvalue = upvalues[slot];
-                Value *location = upvalue->location;
-                push(vm, *location);
+                push(vm, *frame->closure->upvalues[slot]->location);
                 break;
             }
             case OP_SET_UPVALUE: {
@@ -314,7 +309,8 @@ static InterpretResult run(VM* vm) {
                     if (isLocal) {
                         closure->upvalues[i] = captureUpvalue(vm, frame->slots + index);
                     } else {
-                        closure->upvalues[i] = frame->closure->upvalues[index];
+                        ObjUpvalue* capturedUpvalue = frame->closure->upvalues[index];
+                        closure->upvalues[i] = capturedUpvalue;
                     }
                 }
                 break;

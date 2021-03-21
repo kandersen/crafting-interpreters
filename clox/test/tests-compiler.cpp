@@ -26,7 +26,8 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             "print",
             "globalVar",
             "blocks",
-            "upvalue-disassembly"
+            "upvalue-disassembly",
+            "simple-upvalue"
     };
     const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDump/";
 
@@ -42,9 +43,26 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             Globals globals;
             initGlobals(&globals);
             ObjFunction *compilationResult = compile(&strings, &globals, &root, testSource);
-
+            REQUIRE(compilationResult != NULL);
             FILE *tmp = tmpfile();
-            disassembleChunk(tmp, &compilationResult->chunk,compilationResult->name != nullptr ? compilationResult->name->chars : "<script>");
+
+            fprintf(tmp, "===| ASSEMBLY |===\n");
+            Obj* nextObj = root;
+            while (nextObj != nullptr) {
+                if (nextObj->type == OBJ_FUNCTION) {
+                    auto* compiledFunction = (ObjFunction*)nextObj;
+                    disassembleChunk(tmp, &compiledFunction->chunk, compiledFunction->name != nullptr ? compiledFunction->name->chars : "<script>");
+                    fprintf(tmp,"-- Constants --\n");
+                    dumpConstants(tmp, &compiledFunction->chunk);
+                    fprintf(tmp,"\n");
+                }
+                nextObj = nextObj->next;
+            }
+
+            fprintf(tmp, "\n===| INTERNED STRINGS |===\n");
+            dumpInternedStrings(tmp, &strings);
+            fprintf(tmp, "\n===| GLOBALS |===\n");
+            dumpGlobals(tmp, &globals);
 
             char *actual = readFileHandle(tmp, "actual");
             char *expected = readFile(expectationsPath.c_str());

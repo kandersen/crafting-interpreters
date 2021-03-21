@@ -123,3 +123,28 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             return offset + 1;
     }
 }
+
+void dumpInternedStrings(FILE* out, Table* table) {
+    for (int i = 0; i < table->capacity; i++) {
+        if (table->entries[i].key != NULL) {
+            printValue(out, OBJ_VAL(table->entries[i].key));
+            fprintf(out,"\n");
+        }
+    }
+}
+
+void dumpGlobals(FILE* out, Globals* globals) {
+    for (int i = 0; i < globals->count; i++) {
+        ObjString* identifier = globals->identifiers[i];
+        printValue(out, OBJ_VAL(identifier));
+        fprintf(out, "\n");
+    }
+}
+
+void dumpConstants(FILE* out, Chunk* chunk) {
+    for (int i = 0; i < chunk->constants.count; i++) {
+        fprintf(out, "%d:  ", i);
+        printValue(out, chunk->constants.values[i]);
+        fprintf(out,"\n");
+    }
+}

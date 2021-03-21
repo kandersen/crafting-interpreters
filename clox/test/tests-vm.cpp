@@ -19,12 +19,13 @@ TEST_CASE("Print Tests","[vm]") {
                     "breakfast",
                     "fib35",
                     "outside",
+                    "simple-upvalue",
                     "outer",
                     "dynamic-scope",
                     "closure",
-                    "makeClosure",
                     "upvalue",
                     "flattening",
+                    "makeClosure",
                     "devious",
                     "upvalue-disassembly"
             };

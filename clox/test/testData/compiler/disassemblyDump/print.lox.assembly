@@ -1,5 +1,13 @@
+===| ASSEMBLY |===
 == <script> ==
 0000    1 OP_CONSTANT         0 '0'
 0002    | OP_PRINT
 0003    | OP_NIL
 0004    | OP_RETURN
+-- Constants --
+0:  0
+
+
+===| INTERNED STRINGS |===
+
+===| GLOBALS |===
