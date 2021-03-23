@@ -26,9 +26,13 @@ TEST_CASE("Print Tests","[vm]") {
                     "upvalue",
                     "flattening",
                     "upvalue-assignment",
+                    "globalGet",
                     "makeClosure",
                     "devious",
-                    "upvalue-disassembly"
+                    "upvalue-disassembly",
+                    "sibling-closure",
+                    "loop-closure",
+                    "for-loop"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 

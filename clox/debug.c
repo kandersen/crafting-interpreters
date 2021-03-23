@@ -116,6 +116,8 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             }
             return offset;
         }
+        case OP_CLOSE_UPVALUE:
+            return simpleInstruction(out, "OP_CLOSE_UPVALUE", offset);
         case OP_RETURN:
             return simpleInstruction(out, "OP_RETURN", offset);
         default:

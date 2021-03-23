@@ -18,7 +18,6 @@ typedef struct {
     Table names;
     uint8_t count;
     Value values[UINT8_COUNT];
-    ValueArray states;
     ObjString* identifiers[UINT8_COUNT];
 } Globals;
 
@@ -30,6 +29,8 @@ typedef struct {
     Value* stackTop;
     Table strings;
     Globals globals;
+
+    ObjUpvalue* openUpvalues;
     Obj* objects;
 
     FILE* outPipe;

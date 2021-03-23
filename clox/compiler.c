@@ -18,12 +18,13 @@ typedef enum {
 typedef enum {
     VAR_UNINITIALIZED,
     VAR_READABLE,
-    VAR_WRITEABLE
+    VAR_WRITEABLE,
 } VarState;
 
 typedef struct {
     Token name;
     int depth;
+    bool isCaptured;
     VarState state;
 } Local;
 
@@ -96,6 +97,7 @@ static void initCompilationContext(Obj** objectRoot, struct CompilationContext* 
     local->depth = 0;
     local->name.start = "";
     local->name.length = 0;
+    local->isCaptured = false;
 }
 
 static void initCompiler(Compiler* compiler) {
@@ -172,7 +174,7 @@ static void emitBytes(Compiler* compiler, uint8_t byte1, uint8_t byte2) {
     emitByte(compiler, byte2);
 }
 
-__unused static void emitLoop(Compiler* compiler, int loopStart) {
+static void emitLoop(Compiler* compiler, int loopStart) {
     emitByte(compiler, OP_LOOP);
 
     int offset = currentChunk(compiler)->count - loopStart + 2;
@@ -263,9 +265,13 @@ static void beginScope(Compiler* compiler) {
 static void endScope(Compiler* compiler) {
     compiler->context->scopeDepth--;
 
-    while (compiler->context->localCount > 0 &&
-           compiler->context->locals[compiler->context->localCount - 1].depth > compiler->context->scopeDepth) {
-        emitByte(compiler, OP_POP); //TODO(kjaa): add an OP_POPN, instead of many at a time.
+    while (compiler->context->localCount > 0 && compiler->context->locals[compiler->context->localCount - 1].depth > compiler->context->scopeDepth) {
+        if (compiler->context->locals[compiler->context->localCount - 1].isCaptured) {
+            emitByte(compiler, OP_CLOSE_UPVALUE);
+        } else {
+            //TODO(kjaa): add an OP_POPN, instead of many at a time.
+            emitByte(compiler, OP_POP);
+        }
         compiler->context->localCount--;
     }
 }
@@ -331,6 +337,7 @@ static void addLocal(Compiler* compiler, Token name) {
     local->name = name;
     local->depth = compiler->context->scopeDepth;
     local->state = VAR_UNINITIALIZED;
+    local->isCaptured = false;
 }
 
 
@@ -408,15 +415,21 @@ static void varDeclaration(Compiler* compiler, VarState varState) {
 static void forStatement(Compiler* compiler) {
     beginScope(compiler);
 
+    int loopVariable = -1;
+    Token loopVariableName;
+    loopVariableName.start = NULL;
+
     consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
     if (match(compiler, TOKEN_SEMICOLON)) {
         // No initializer;
+        consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
     } else if (match(compiler, TOKEN_VAR)) {
+        loopVariableName = compiler->current;
         varDeclaration(compiler, VAR_WRITEABLE);
+        loopVariable = compiler->context->localCount - 1;
     } else {
         expressionStatement(compiler);
     }
-    consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
 
     int loopStart = currentChunk(compiler)->count;
 
@@ -427,9 +440,10 @@ static void forStatement(Compiler* compiler) {
 
         exitJump = emitJump(compiler, OP_JUMP_IF_FALSE);
         emitByte(compiler, OP_POP);
+    } else {
+        // No condition
+        consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
     }
-
-    consume(compiler, TOKEN_SEMICOLON, "Expect ';'.");
 
     if (!match(compiler, TOKEN_RIGHT_PAREN)) {
         int bodyJump = emitJump(compiler, OP_JUMP);
@@ -442,9 +456,29 @@ static void forStatement(Compiler* compiler) {
         emitLoop(compiler, loopStart);
         loopStart = incrementStart;
         patchJump(compiler, bodyJump);
+    } else {
+        // No increment
+        consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+    }
+
+    int innerVariable = -1;
+    if (loopVariable != -1) {
+        beginScope(compiler);
+        emitBytes(compiler, OP_GET_LOCAL, (uint8_t)loopVariable);
+        addLocal(compiler, loopVariableName);
+        markInitialized(compiler->context, VAR_WRITEABLE);
+        innerVariable = compiler->context->localCount - 1;
     }
 
     statement(compiler);
+
+    if (loopVariable != -1) {
+        emitBytes(compiler, OP_GET_LOCAL, (uint8_t)innerVariable);
+        emitBytes(compiler, OP_SET_LOCAL, (uint8_t)loopVariable);
+        emitByte(compiler, OP_POP);
+
+        endScope(compiler);
+    }
 
     emitLoop(compiler, loopStart);
 
@@ -531,6 +565,8 @@ static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType
     consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before function body");
     block(compiler);
 
+    //TODO(kjaa): If function.upvalueCount == 0, do not make a closure
+    //   just keep a simple plain function
     ObjFunction* function = endCompilation(compiler);
     emitBytes(compiler, OP_CLOSURE, makeConstant(compiler, OBJ_VAL(function)));
     for (int i = 0; i < function->upvalueCount; i++) {
@@ -540,7 +576,7 @@ static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType
 }
 
 static void funDeclaration(Compiler* compiler) {
-    // TODO(kjaa): WRONG! This assumes all functions are globals.
+    // FIXME(kjaa): WRONG! This assumes all functions are globals.
     uint8_t global = parseVariable(compiler, "Expect function name.");
     markInitialized(compiler->context, VAR_READABLE);
     function(compiler, global, TYPE_FUNCTION);
@@ -580,7 +616,8 @@ static void parsePrecendence(Compiler* compiler, Precedence precedence) {
     while (precedence <= getRule(compiler->current.type)->precedence) {
         advance(compiler);
         ParseFn infixRule = getRule(compiler->previous.type)->infix;
-        infixRule(compiler, true); // TODO(kjaa): NO IDEA if this is right, it might not need canAssign.
+        // TODO(kjaa): NO IDEA if `true` is right, it might not need canAssign.
+        infixRule(compiler, true);
     }
 
     if (canAssign && match(compiler, TOKEN_EQUAL)) {
@@ -695,6 +732,7 @@ static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token
 
     int local = resolveLocal(compiler, context->enclosing, name);
     if (local != -1) {
+        context->enclosing->locals[local].isCaptured = true;
         VarState varState = context->enclosing->locals[local].state;
         return addUpvalue(compiler, context, (uint8_t)local, true, varState);
     }
@@ -728,7 +766,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     }
 
     if (canAssign && match(compiler, TOKEN_EQUAL)) {
-        if (varState != VAR_WRITEABLE) {
+        if (varState == VAR_READABLE) {
             error(compiler, "Writing to const variable.");
         }
         expression(compiler);
@@ -743,7 +781,7 @@ static void variable(Compiler* compiler, bool canAssign) {
 }
 
 
-static void and_(Compiler* compiler, bool canAssign) {
+static void and_(Compiler* compiler, __unused bool canAssign) {
     int endJump = emitJump(compiler, OP_JUMP_IF_FALSE);
 
     emitByte(compiler, OP_POP);
@@ -765,12 +803,12 @@ static void or_(Compiler* compiler, bool canAssign) {
 
 
 
-static void number(Compiler* compiler, bool canAssign) {
+static void number(Compiler* compiler, __unused bool canAssign) {
     double value = strtod(compiler->previous.start, NULL);
     emitConstant(compiler, NUMBER_VAL(value));
 }
 
-static void string(Compiler* compiler, bool canAssign) {
+static void string(Compiler* compiler, __unused bool canAssign) {
     emitConstant(compiler, OBJ_VAL(copyString(compiler->internedStrings, compiler->objectRoot, compiler->previous.start + 1, compiler->previous.length - 2)));
 }
 
@@ -852,5 +890,3 @@ ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const c
     ObjFunction* function = endCompilation(&compiler);
     return compiler.hadError ? NULL : function;
 }
-
-#pragma clang diagnostic pop
