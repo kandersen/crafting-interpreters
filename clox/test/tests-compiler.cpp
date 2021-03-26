@@ -1,4 +1,3 @@
-#include <libc.h>
 #include "catch2/catch.hpp"
 
 extern "C" {
@@ -38,27 +37,19 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             const std::string expectationsPath = sourcePath + ".assembly";
 
             char *testSource = readFile(sourcePath.c_str());
-            Obj *root = nullptr;
             Table strings;
             initTable(&strings);
             Globals globals;
             initGlobals(&globals);
-            ObjFunction *compilationResult = compile(&strings, &globals, &root, testSource);
+
+            MemoryManager nullCollector;
+            initMemoryManager(&nullCollector);
+
+            ObjFunction* compilationResult = compile(&nullCollector, &strings, &globals, testSource);
             REQUIRE(compilationResult != NULL);
             FILE *tmp = tmpfile();
 
             fprintf(tmp, "===| ASSEMBLY |===\n");
-            Obj* nextObj = root;
-            while (nextObj != nullptr) {
-                if (nextObj->type == OBJ_FUNCTION) {
-                    auto* compiledFunction = (ObjFunction*)nextObj;
-                    disassembleChunk(tmp, &compiledFunction->chunk, compiledFunction->name != nullptr ? compiledFunction->name->chars : "<script>");
-                    fprintf(tmp,"-- Constants --\n");
-                    dumpConstants(tmp, &compiledFunction->chunk);
-                    fprintf(tmp,"\n");
-                }
-                nextObj = nextObj->next;
-            }
 
             fprintf(tmp, "\n===| INTERNED STRINGS |===\n");
             dumpInternedStrings(tmp, &strings);
@@ -72,8 +63,8 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             free(expected);
             free(actual);
             fclose(tmp);
-            freeGlobals(&globals);
-            freeObjects(root);
+            freeGlobals(&nullCollector, &globals);
+            freeMemoryManager(&nullCollector);
             free(testSource);
         }
     }

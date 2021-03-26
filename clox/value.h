@@ -16,7 +16,7 @@ typedef enum {
 typedef struct Obj Obj;
 typedef struct ObjString ObjString;
 
-typedef struct {
+typedef struct Value {
     ValueType type;
     union {
         bool boolean;
@@ -47,10 +47,16 @@ typedef struct {
     Value* values;
 } ValueArray;
 
+typedef struct MemoryManager MemoryManager;
+
 void initValueArray(ValueArray* array);
-void writeValueArray(ValueArray* array, Value value);
-void freeValueArray(ValueArray* array);
+void writeValueArray(MemoryManager* mm, ValueArray* array, Value value);
+void freeValueArray(MemoryManager* mm, ValueArray* array);
 bool valuesEqual(Value a, Value b);
 void printValue(FILE* out, Value value);
+
+void markObject(Obj* object);
+void markValue(Value value);
+
 
 #endif //CLOX_VALUE_H

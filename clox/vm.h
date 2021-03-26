@@ -31,7 +31,8 @@ typedef struct {
     Globals globals;
 
     ObjUpvalue* openUpvalues;
-    Obj* objects;
+
+    MemoryManager* mm;
 
     FILE* outPipe;
     FILE* errPipe;
@@ -44,10 +45,13 @@ typedef enum {
 } InterpretResult;
 
 void initGlobals(Globals* globals);
-void freeGlobals(Globals* globals);
-
+void freeGlobals(MemoryManager* mm, Globals* globals);
 void initVM(VM* vm);
+void initNativeFunctionEnvironment(VM* vm);
 void freeVM(VM* vm);
+
 InterpretResult interpret(VM* vm, const char* source);
+
+void markVMRoots(void*);
 
 #endif //CLOX_VM_H

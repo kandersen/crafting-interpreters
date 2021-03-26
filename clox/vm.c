@@ -36,12 +36,12 @@ static void concatenate(VM* vm) {
     ObjString* a = AS_STRING(pop(vm));
 
     int length = a->length + b->length;
-    char* chars = ALLOCATE(char, length + 1);
+    char* chars = ALLOCATE(vm->mm, char, length + 1);
     memcpy(chars, a->chars, a->length);
     memcpy(chars + a->length, b->chars, b->length);
     chars[length] = '\0';
 
-    ObjString* result = takeString(&vm->strings, &vm->objects, chars, length);
+    ObjString* result = takeString(vm->mm, &vm->strings, chars, length);
     push(vm, OBJ_VAL(result));
 }
 
@@ -139,7 +139,7 @@ static ObjUpvalue* captureUpvalue(VM* vm, Value* local) {
         return upvalue;
     }
 
-    ObjUpvalue* createdUpvalue = newUpvalue(&vm->objects, local);
+    ObjUpvalue* createdUpvalue = newUpvalue(vm->mm, local);
     createdUpvalue->next = upvalue;
     // TODO(kjaa): you can use pointer-to-a-pointer to avoid this special casing:
     //   prevUpvalue = &vm->openUpvalue; while() { prevUpvalue = &upvalue->next };
@@ -332,7 +332,7 @@ static InterpretResult run(VM* vm) {
             }
             case OP_CLOSURE: {
                 ObjFunction *function = AS_FUNCTION(READ_CONSTANT());
-                ObjClosure *closure = newClosure(&vm->objects, function);
+                ObjClosure *closure = newClosure(vm->mm, function);
                 push(vm, OBJ_VAL(closure));
                 for (int i = 0; i < closure->upvalueCount; i++) {
                     uint8_t isLocal = READ_BYTE();
@@ -382,57 +382,82 @@ void initGlobals(Globals* globals) {
     globals->count = 0;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-static int clockNative(int argCount, Value* args, Value* result) {
+static int clockNative(__unused int argCount, __unused Value* args, Value* result) {
     *result = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
     return true;
 }
-#pragma clang diagnostic pop
 
 static void defineNative(VM* vm, const char* name, int arity, NativeFn function) {
-    ObjString* identifier = copyString(&vm->strings, &vm->objects, name, (int) strlen(name));
+    ObjString* identifier = copyString(vm->mm, &vm->strings, name, (int) strlen(name));
     push(vm, OBJ_VAL(identifier));
-    push(vm, OBJ_VAL(newNative(&vm->objects, arity, function)));
+    push(vm, OBJ_VAL(newNative(vm->mm, arity, function)));
 
     uint8_t newIndex = (uint8_t)vm->globals.count++;
     vm->globals.values[newIndex] = vm->stack[1];
     vm->globals.identifiers[newIndex] = identifier;
-    tableSet(&vm->globals.names, AS_STRING(vm->stack[0]), NUMBER_VAL((double)newIndex));
+    tableSet(vm->mm, &vm->globals.names, AS_STRING(vm->stack[0]), NUMBER_VAL((double)newIndex));
 
     pop(vm);
     pop(vm);
+}
+
+
+void markVMRoots(void* data) {
+    VM* vm = (VM*)data;
+    // The Stack
+    for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
+        markValue(*slot);
+    }
+
+    // CallFrames
+    for (int i = 0; i < vm->frameCount; i++) {
+        markObject((Obj*)vm->frames[i].closure);
+    }
+
+    // Open Upvalues
+    for (ObjUpvalue* upvalue = vm->openUpvalues; upvalue != NULL; upvalue = upvalue->next) {
+        markObject((Obj*)upvalue);
+    }
+
+    // Global variables and associated data
+    for (int i = 0; i < vm->globals.count; i++) {
+        markValue(vm->globals.values[i]);
+        markObject((Obj*)vm->globals.identifiers[i]);
+    }
+    markTable(&vm->globals.names);
 }
 
 void initVM(VM* vm) {
     resetStack(vm);
-    vm->objects = NULL;
     initTable(&vm->strings);
     initGlobals(&vm->globals);
+
     vm->outPipe = stdout;
     vm->errPipe = stderr;
+
+    vm->mm = NULL;
+}
+
+void initNativeFunctionEnvironment(VM* vm) {
     defineNative(vm, "clock", 0, clockNative);
 }
 
-void freeGlobals(Globals* globals) {
-    freeTable(&globals->names);
+void freeGlobals(MemoryManager* mm, Globals* globals) {
+    freeTable(mm, &globals->names);
 }
 
 void freeVM(VM* vm) {
-    freeObjects(vm->objects);
-    freeTable(&vm->strings);
-    freeGlobals(&vm->globals);
+    freeTable(vm->mm, &vm->strings);
+    freeGlobals(vm->mm, &vm->globals);
     initVM(vm);
 }
 
-
-
 InterpretResult interpret(VM* vm, const char* source) {
-    ObjFunction* function = compile(&vm->strings, &vm->globals, &vm->objects, source);
+    ObjFunction* function = compile(vm->mm, &vm->strings, &vm->globals, source);
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
     push(vm, OBJ_VAL(function));
-    ObjClosure* closure = newClosure(&vm->objects, function);
+    ObjClosure* closure = newClosure(vm->mm, function);
     pop(vm);
     push(vm, OBJ_VAL(closure));
     callValue(vm, OBJ_VAL(closure), 0);

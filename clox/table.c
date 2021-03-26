@@ -1,8 +1,8 @@
 #include <string.h>
 
-#include "memory.h"
-#include "table.h"
 #include "value.h"
+#include "object.h"
+#include "table.h"
 
 #define TABLE_MAX_LOAD 0.75
 
@@ -38,8 +38,8 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
     return true;
 }
 
-static void adjustCapacity(Table* table, int capacity) {
-    Entry* entries = ALLOCATE(Entry, capacity);
+static void adjustCapacity(MemoryManager* mm, Table* table, int capacity) {
+    Entry* entries = ALLOCATE(mm, Entry, capacity);
     for (int i = 0; i < capacity; i++) {
         entries[i].key = NULL;
         entries[i].value = NIL_VAL;
@@ -57,7 +57,7 @@ static void adjustCapacity(Table* table, int capacity) {
         table->count++;
     }
 
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+    FREE_ARRAY(mm, Entry, table->entries, table->capacity);
     table->entries = entries;
     table->capacity = capacity;
 }
@@ -68,15 +68,15 @@ void initTable(Table* table) {
     table->entries = NULL;
 }
 
-void freeTable(Table* table) {
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+void freeTable(MemoryManager* mm, Table* table) {
+    FREE_ARRAY(mm, Entry, table->entries, table->capacity);
     initTable(table);
 }
 
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(MemoryManager* mm, Table* table, ObjString* key, Value value) {
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
         int capacity = GROW_CAPACITY(table->capacity);
-        adjustCapacity(table, capacity);
+        adjustCapacity(mm, table, capacity);
     }
     Entry* entry = findEntry(table->entries, table->capacity, key);
 
@@ -100,11 +100,11 @@ bool tableDelete(Table* table, ObjString* key) {
     return true;
 }
 
-void tableAddAll(Table* from, Table* to) {
+void tableAddAll(MemoryManager* mm, Table* from, Table* to) {
     for (int i = 0; i < from->capacity; i++) {
         Entry* entry = &from->entries[i];
         if (entry->key != NULL) {
-            tableSet(to, entry->key, entry->value);
+            tableSet(mm, to, entry->key, entry->value);
         }
     }
 }
@@ -127,5 +127,13 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
         }
 
         index = (index + 1) % table->capacity;
+    }
+}
+
+void markTable(Table* table) {
+    for (int i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        markObject((Obj*)entry->key);
+        markValue(entry->value);
     }
 }

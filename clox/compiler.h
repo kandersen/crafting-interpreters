@@ -4,6 +4,6 @@
 #include "object.h"
 #include "vm.h"
 
-ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const char* source);
+ObjFunction* compile(MemoryManager* mm, Table* strings, Globals* globals, const char* source);
 
 #endif //CLOX_COMPILER_H

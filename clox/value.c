@@ -10,19 +10,19 @@ void initValueArray(ValueArray* array) {
     array->count = 0;
 }
 
-void writeValueArray(ValueArray* array, Value value) {
+void writeValueArray(MemoryManager* mm, ValueArray* array, Value value) {
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
-        array->values = GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
+        array->values = GROW_ARRAY(mm, Value, array->values, oldCapacity, array->capacity);
     }
 
     array->values[array->count] = value;
     array->count++;
 }
 
-void freeValueArray(ValueArray* array) {
-    FREE_ARRAY(Value, array->values, array->capacity);
+void freeValueArray(MemoryManager* mm, ValueArray* array) {
+    FREE_ARRAY(mm, Value, array->values, array->capacity);
     initValueArray(array);
 }
 
@@ -48,4 +48,20 @@ void printValue(FILE* out, Value value) {
         case VAL_UNDEFINED: fprintf(out, "<undefined>"); break;
             break;
     }
+}
+
+
+void markObject(Obj* object) {
+    if (object == NULL) return;
+#ifdef DEBUG_LOG_GC
+    printf("%p mark ", (void*)object);
+    printValue(stdout, OBJ_VAL(object));
+    printf("\n");
+#endif
+    object->isMarked = true;
+}
+
+void markValue(Value value) {
+    if (!IS_OBJ(value)) return;
+    markObject(AS_OBJ(value));
 }

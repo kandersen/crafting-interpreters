@@ -28,6 +28,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
+    bool isMarked;
     struct Obj* next;
 };
 
@@ -72,13 +73,13 @@ static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
-ObjClosure* newClosure(Obj** objectRoot, ObjFunction* function);
-ObjUpvalue* newUpvalue(Obj** objectRoot, Value* slot);
-ObjFunction* newFunction(Obj** objectRoot);
-ObjNative* newNative(Obj** objectRoot, int arity, NativeFn function);
+ObjClosure* newClosure(MemoryManager* mm, ObjFunction* function);
+ObjUpvalue* newUpvalue(MemoryManager* mm, Value* slot);
+ObjFunction* newFunction(MemoryManager* mm);
+ObjNative* newNative(MemoryManager* mm, int arity, NativeFn function);
 
-ObjString* copyString(Table* strings, Obj** objectRoot, const char* chars, int length);
-ObjString* takeString(Table* strings, Obj** objectRoot, char* chars, int length);
+ObjString* copyString(MemoryManager* mm, Table* strings, const char* chars, int length);
+ObjString* takeString(MemoryManager* mm, Table* strings, char* chars, int length);
 
 void printObject(FILE* out, Value value);
 

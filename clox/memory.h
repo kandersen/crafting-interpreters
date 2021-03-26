@@ -2,25 +2,43 @@
 #define CLOX_MEMORY_H
 
 #include "common.h"
-#include "object.h"
 
-#define ALLOCATE(type, count) \
-    (type*)reallocate(NULL, 0, sizeof(type) * (count))
+#define ALLOCATE(mm, type, count) \
+    (type*)reallocate(mm, NULL, 0, sizeof(type) * (count))
 
-#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
+#define FREE(mm, type, pointer) reallocate(mm, pointer, sizeof(type), 0)
 
 #define GROW_CAPACITY(capacity) \
     ((capacity) < 8 ? 8 : (capacity) * 2)
 
-#define GROW_ARRAY(type, pointer, oldCount, newCount) \
-    (type*)reallocate(pointer, sizeof(type) * (oldCount), \
+#define GROW_ARRAY(mm, type, pointer, oldCount, newCount) \
+    (type*)reallocate(mm, pointer, sizeof(type) * (oldCount), \
         sizeof(type) * (newCount))
 
-#define FREE_ARRAY(type, pointer, oldCount) \
-    reallocate(pointer, sizeof(type) * (oldCount), 0)
+#define FREE_ARRAY(mm, type, pointer, oldCount) \
+    reallocate(mm, pointer, sizeof(type) * (oldCount), 0)
 
-void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+typedef void (*MemoryComponentFn)(void*);
 
-void freeObjects(Obj* objects);
+typedef struct MemoryComponent {
+    void* data;
+    MemoryComponentFn markRoots;
+    MemoryComponentFn handleWeakReferences;
+    struct MemoryComponent* next;
+} MemoryComponent;
+
+typedef struct Obj Obj;
+
+typedef struct MemoryManager {
+    MemoryComponent* memoryComponents;
+    Obj* objects;
+} MemoryManager;
+
+void initMemoryManager(MemoryManager* mm);
+void freeMemoryManager(MemoryManager* mm);
+void nullMemoryComponentFn(void* data);
+
+void collectGarbage(MemoryManager* mm);
+void* reallocate(MemoryManager* mm, void* pointer, size_t oldSize, size_t newSize);
 
 #endif //CLOX_MEMORY_H

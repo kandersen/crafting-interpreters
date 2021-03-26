@@ -3,6 +3,7 @@
 
 #include "vm.h"
 #include "file.h"
+#include "memory.h"
 
 static void repl(VM* vm) {
     char line[1024];
@@ -28,8 +29,21 @@ static void runFile(VM* vm, const char* path) {
 }
 
 int main(int argc, const char* argv[]) {
+    MemoryManager mm;
+    initMemoryManager(&mm);
+
     VM vm;
     initVM(&vm);
+    vm.mm = &mm;
+
+    MemoryComponent vmComponent;
+    vmComponent.data = &vm;
+    vmComponent.markRoots = markVMRoots;
+    vmComponent.handleWeakReferences = nullMemoryComponentFn;
+    vmComponent.next = mm.memoryComponents;
+    mm.memoryComponents = &vmComponent;
+
+    initNativeFunctionEnvironment(&vm);
 
     if (argc == 1) {
         repl(&vm);
@@ -40,6 +54,13 @@ int main(int argc, const char* argv[]) {
         exit(64);
     }
 
+    mm.memoryComponents = vmComponent.next;
+    vmComponent.data = NULL;
+    vmComponent.markRoots = NULL;
+    vmComponent.handleWeakReferences = NULL;
+    vmComponent.next = NULL;
+
     freeVM(&vm);
+    freeMemoryManager(&mm);
     return 0;
 }

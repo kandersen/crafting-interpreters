@@ -6,8 +6,10 @@
 #include "scanner.h"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
+
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
+#include "memory.h"
 #endif
 
 typedef enum {
@@ -58,7 +60,7 @@ typedef struct {
     CompilationContext* context;
 
     // Injected VM State
-    Obj** objectRoot;
+    MemoryManager* mm;
     Table* internedStrings;
     Globals* globals;
 } Compiler;
@@ -85,13 +87,13 @@ typedef struct {
     Precedence precedence;
 } ParseRule;
 
-static void initCompilationContext(Obj** objectRoot, struct CompilationContext* context, FunctionType type) {
+static void initCompilationContext(MemoryManager* mm, struct CompilationContext* context, FunctionType type) {
     context->enclosing = NULL;
     context->type = type;
     context->function = NULL;
     context->localCount = 0;
     context->scopeDepth = 0;
-    context->function = newFunction(objectRoot);
+    context->function = newFunction(mm);
 
     Local* local = &context->locals[context->localCount++];
     local->depth = 0;
@@ -166,7 +168,7 @@ static Chunk* currentChunk(Compiler* compiler) {
 }
 
 static void emitByte(Compiler* compiler, uint8_t byte) {
-    writeChunk(currentChunk(compiler), byte, compiler->previous.line);
+    writeChunk(compiler->mm, currentChunk(compiler), byte, compiler->previous.line);
 }
 
 static void emitBytes(Compiler* compiler, uint8_t byte1, uint8_t byte2) {
@@ -202,7 +204,7 @@ static void patchJump(Compiler* compiler, int offset) {
 }
 
 static uint8_t makeConstant(Compiler* compiler, Value value) {
-    int constant = addConstant(currentChunk(compiler), value);
+    int constant = addConstant(compiler->mm, currentChunk(compiler), value);
     if (constant > UINT8_MAX) {
         error(compiler, "Too many constants in one chunk.");
         return 0;
@@ -360,7 +362,7 @@ static void declareVariable(Compiler* compiler) {
 
 static uint8_t identifierConstant(Compiler* compiler, Token* name) {
     Value index;
-    ObjString* identifier = copyString(compiler->internedStrings, compiler->objectRoot, name->start, name->length);
+    ObjString* identifier = copyString(compiler->mm, compiler->internedStrings, name->start, name->length);
     if (tableGet(&compiler->globals->names, identifier, &index)) {
         return (uint8_t)AS_NUMBER(index);
     }
@@ -369,7 +371,7 @@ static uint8_t identifierConstant(Compiler* compiler, Token* name) {
     compiler->globals->values[newIndex] = UNDEFINED_VAL;
     compiler->globals->identifiers[newIndex] = identifier;
 
-    tableSet(&compiler->globals->names, identifier, NUMBER_VAL((double)newIndex));
+    tableSet(compiler->mm, &compiler->globals->names, identifier, NUMBER_VAL((double)newIndex));
     return newIndex;
 }
 
@@ -541,7 +543,7 @@ static ObjFunction* endCompilation(Compiler* compiler) {
 
 static void function(Compiler* compiler, uint8_t globalSlotForName, FunctionType type) {
     CompilationContext context;
-    initCompilationContext(compiler->objectRoot, &context, type);
+    initCompilationContext(compiler->mm, &context, type);
     context.enclosing = compiler->context;
     compiler->context = &context;
     context.function->name = compiler->globals->identifiers[globalSlotForName];
@@ -809,7 +811,7 @@ static void number(Compiler* compiler, __unused bool canAssign) {
 }
 
 static void string(Compiler* compiler, __unused bool canAssign) {
-    emitConstant(compiler, OBJ_VAL(copyString(compiler->internedStrings, compiler->objectRoot, compiler->previous.start + 1, compiler->previous.length - 2)));
+    emitConstant(compiler, OBJ_VAL(copyString(compiler->mm, compiler->internedStrings, compiler->previous.start + 1, compiler->previous.length - 2)));
 }
 
 
@@ -865,19 +867,35 @@ static void expression(Compiler* compiler) {
     parsePrecendence(compiler, PREC_ASSIGNMENT);
 }
 
-ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const char* source) {
+void markCompilerRoots(void* data) {
+    Compiler* compiler = (Compiler*)data;
+    CompilationContext* context = compiler->context;
+    while (context != NULL) {
+        markObject((Obj*)context->function);
+        context = context->enclosing;
+    }
+}
+
+ObjFunction* compile(MemoryManager* mm, Table* strings, Globals* globals, const char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
     CompilationContext scriptContext;
-    initCompilationContext(objectRoot, &scriptContext, TYPE_SCRIPT);
+    initCompilationContext(mm, &scriptContext, TYPE_SCRIPT);
 
     Compiler compiler;
+
+    MemoryComponent compilerComponent;
+    compilerComponent.data = &compiler;
+    compilerComponent.markRoots = markCompilerRoots;
+    compilerComponent.handleWeakReferences = nullMemoryComponentFn;
+    compilerComponent.next = mm->memoryComponents;
+    mm->memoryComponents = &compilerComponent;
+
     initCompiler(&compiler);
     compiler.scanner = &scanner;
-
     compiler.context = &scriptContext;
-    compiler.objectRoot = objectRoot;
+    compiler.mm = mm;
     compiler.globals = globals;
     compiler.internedStrings = strings;
 
@@ -888,5 +906,7 @@ ObjFunction* compile(Table* strings, Globals* globals, Obj** objectRoot, const c
     }
 
     ObjFunction* function = endCompilation(&compiler);
+
+    mm->memoryComponents = mm->memoryComponents->next;
     return compiler.hadError ? NULL : function;
 }

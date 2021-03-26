@@ -4,15 +4,20 @@
 #include "memory.h"
 #include "table.h"
 
-#define ALLOCATE_OBJ(objectRoot, type, objectType) \
-    (type*)allocateObject(objectRoot, sizeof(type), objectType)
+#define ALLOCATE_OBJ(mm, type, objectType) \
+    (type*)allocateObject(mm, sizeof(type), objectType)
 
-static Obj* allocateObject(Obj** objectRoot, size_t size, ObjType type) {
-    Obj* object = (Obj*)reallocate(NULL, 0, size);
+static Obj* allocateObject(MemoryManager* mm, size_t size, ObjType type) {
+    Obj* object = (Obj*)reallocate(mm, NULL, 0, size);
     object->type = type;
+    object->isMarked = false;
 
-    object->next = *objectRoot;
-    *objectRoot = object;
+    object->next = mm->objects;
+    mm->objects = object;
+
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %d\n", (void*)object, size, type);
+#endif
 
     return object;
 }
@@ -46,29 +51,29 @@ void printObject(FILE* out, Value value) {
     }
 }
 
-ObjClosure* newClosure(Obj** objectRoot, ObjFunction* function) {
-    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+ObjClosure* newClosure(MemoryManager* mm, ObjFunction* function) {
+    ObjUpvalue** upvalues = ALLOCATE(mm, ObjUpvalue*, function->upvalueCount);
     for (int i = 0; i < function->upvalueCount; i++) {
         upvalues[i] = NULL;
     }
 
-    ObjClosure* closure  = ALLOCATE_OBJ(objectRoot, ObjClosure, OBJ_CLOSURE);
+    ObjClosure* closure  = ALLOCATE_OBJ(mm, ObjClosure, OBJ_CLOSURE);
     closure->function = function;
     closure->upvalues = upvalues;
     closure->upvalueCount = function->upvalueCount;
     return closure;
 }
 
-ObjUpvalue* newUpvalue(Obj** objectRoot, Value* slot) {
-    ObjUpvalue* upvalue = ALLOCATE_OBJ(objectRoot, ObjUpvalue, OBJ_UPVALUE);
+ObjUpvalue* newUpvalue(MemoryManager* mm, Value* slot) {
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(mm, ObjUpvalue, OBJ_UPVALUE);
     upvalue->closed = NIL_VAL;
     upvalue->location = slot;
     upvalue->next = NULL;
     return upvalue;
 }
 
-ObjFunction* newFunction(Obj** objectRoot) {
-    ObjFunction* function = ALLOCATE_OBJ(objectRoot, ObjFunction, OBJ_FUNCTION);
+ObjFunction* newFunction(MemoryManager* mm) {
+    ObjFunction* function = ALLOCATE_OBJ(mm, ObjFunction, OBJ_FUNCTION);
     function->upvalueCount = 0;
     function->arity = 0;
     function->name = NULL;
@@ -76,20 +81,20 @@ ObjFunction* newFunction(Obj** objectRoot) {
     return function;
 }
 
-ObjNative* newNative(Obj** objectRoot, int arity, NativeFn function) {
-    ObjNative* native = ALLOCATE_OBJ(objectRoot, ObjNative, OBJ_NATIVE);
+ObjNative* newNative(MemoryManager* mm, int arity, NativeFn function) {
+    ObjNative* native = ALLOCATE_OBJ(mm, ObjNative, OBJ_NATIVE);
     native->arity = arity;
     native->function = function;
     return native;
 }
 
-static ObjString* allocateString(Table* strings, Obj** objectRoot, char* chars, int length, uint32_t hash) {
-    ObjString* string = ALLOCATE_OBJ(objectRoot, ObjString, OBJ_STRING);
+static ObjString* allocateString(MemoryManager* mm, Table* strings, char* chars, int length, uint32_t hash) {
+    ObjString* string = ALLOCATE_OBJ(mm, ObjString, OBJ_STRING);
     string->length = length;
     string->chars = chars;
     string->hash = hash;
 
-    tableSet(strings, string, NIL_VAL);
+    tableSet(mm, strings, string, NIL_VAL);
 
     return string;
 }
@@ -104,26 +109,26 @@ static uint32_t hashString(const char* key, int length) {
     return hash;
 }
 
-ObjString* copyString(Table* strings, Obj** objectRoot, const char* chars, int length) {
+ObjString* copyString(MemoryManager* mm, Table* strings, const char* chars, int length) {
     uint32_t hash = hashString(chars, length);
     ObjString* interned = tableFindString(strings, chars, length, hash);
     if (interned != NULL) return interned;
 
-    char* heapChars = ALLOCATE(char, length + 1);
+    char* heapChars = ALLOCATE(mm, char, length + 1);
     memcpy(heapChars, chars, length);
     heapChars[length] = '\0';
 
-    return allocateString(strings, objectRoot, heapChars, length, hash);
+    return allocateString(mm, strings, heapChars, length, hash);
 }
 
 
-ObjString* takeString(Table* strings, Obj** objectRoot, char* chars, int length) {
+ObjString* takeString(MemoryManager* mm, Table* strings, char* chars, int length) {
     uint32_t hash = hashString(chars, length);
     ObjString* interned = tableFindString(strings, chars, length, hash);
     if (interned != NULL) {
-        FREE_ARRAY(char, chars, length + 1);
+        FREE_ARRAY(mm, char, chars, length + 1);
         return interned;
     }
 
-    return allocateString(strings, objectRoot, chars, length, hash);
+    return allocateString(mm, strings, chars, length, hash);
 }

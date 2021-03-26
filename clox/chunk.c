@@ -10,12 +10,12 @@ void initChunk(Chunk* chunk) {
     initValueArray(&chunk->constants);
 }
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line) {
+void writeChunk(MemoryManager* mm, Chunk* chunk, uint8_t byte, int line) {
     if (chunk->capacity < chunk->count + 1) {
         int oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
-        chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
-        chunk->lines = GROW_ARRAY(int, chunk->lines, oldCapacity, chunk->capacity);
+        chunk->code = GROW_ARRAY(mm, uint8_t, chunk->code, oldCapacity, chunk->capacity);
+        chunk->lines = GROW_ARRAY(mm, int, chunk->lines, oldCapacity, chunk->capacity);
     }
 
     chunk->code[chunk->count] = byte;
@@ -23,14 +23,14 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
     chunk->count++;
 }
 
-void freeChunk(Chunk* chunk) {
-    FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
-    FREE_ARRAY(int, chunk->lines, chunk->capacity);
-    freeValueArray(&chunk->constants);
+void freeChunk(MemoryManager* mm, Chunk* chunk) {
+    FREE_ARRAY(mm, uint8_t, chunk->code, chunk->capacity);
+    FREE_ARRAY(mm, int, chunk->lines, chunk->capacity);
+    freeValueArray(mm, &chunk->constants);
     initChunk(chunk);
 }
 
-int addConstant(Chunk* chunk, Value value) {
-    writeValueArray(&chunk->constants, value);
+int addConstant(MemoryManager* mm, Chunk* chunk, Value value) {
+    writeValueArray(mm, &chunk->constants, value);
     return chunk->constants.count - 1;
 }

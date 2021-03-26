@@ -1,6 +1,7 @@
 #include "catch2/catch.hpp"
 
 extern "C" {
+#include "memory.h"
 #include "file.h"
 #include "vm.h"
 }
@@ -43,8 +44,22 @@ TEST_CASE("Print Tests","[vm]") {
 
             FILE* tmp = tmpfile();
 
+            MemoryManager mm;
+            initMemoryManager(&mm);
+
             VM vm;
             initVM(&vm);
+            vm.mm = &mm;
+
+            MemoryComponent vmComponent;
+            vmComponent.data = &vm;
+            vmComponent.markRoots = markVMRoots;
+            vmComponent.handleWeakReferences = nullMemoryComponentFn;
+            vmComponent.next = mm.memoryComponents;
+            mm.memoryComponents = &vmComponent;
+
+            initNativeFunctionEnvironment(&vm);
+
             vm.outPipe = tmp;
             vm.errPipe = stdout;
 
@@ -61,7 +76,15 @@ TEST_CASE("Print Tests","[vm]") {
             free(actual);
             fclose(tmp);
             free(testSource);
+
+            mm.memoryComponents = vmComponent.next;
+            vmComponent.data = nullptr;
+            vmComponent.markRoots = nullptr;
+            vmComponent.handleWeakReferences = nullptr;
+            vmComponent.next = nullptr;
+
             freeVM(&vm);
+            freeMemoryManager(&mm);
         }
     }
 }

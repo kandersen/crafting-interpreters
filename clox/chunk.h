@@ -44,9 +44,9 @@ typedef struct {
 } Chunk;
 
 void initChunk(Chunk* chunk);
-void freeChunk(Chunk* chunk);
+void freeChunk(MemoryManager* mm, Chunk* chunk);
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
-int addConstant(Chunk* chunk, Value value);
+void writeChunk(MemoryManager* mm, Chunk* chunk, uint8_t byte, int line);
+int addConstant(MemoryManager* mm, Chunk* chunk, Value value);
 
 #endif //CLOX_CHUNK_H
