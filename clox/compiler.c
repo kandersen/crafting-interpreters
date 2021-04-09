@@ -871,7 +871,7 @@ void markCompilerRoots(void* data) {
     Compiler* compiler = (Compiler*)data;
     CompilationContext* context = compiler->context;
     while (context != NULL) {
-        markObject((Obj*)context->function);
+        markObject(compiler->mm, (Obj*)context->function);
         context = context->enclosing;
     }
 }

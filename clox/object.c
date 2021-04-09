@@ -94,7 +94,10 @@ static ObjString* allocateString(MemoryManager* mm, Table* strings, char* chars,
     string->chars = chars;
     string->hash = hash;
 
+    Value stringForStack = OBJ_VAL(string);
+    pushStack(mm, &stringForStack);
     tableSet(mm, strings, string, NIL_VAL);
+    popStack(mm);
 
     return string;
 }

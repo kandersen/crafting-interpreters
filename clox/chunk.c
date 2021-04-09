@@ -31,6 +31,8 @@ void freeChunk(MemoryManager* mm, Chunk* chunk) {
 }
 
 int addConstant(MemoryManager* mm, Chunk* chunk, Value value) {
+    pushStack(mm, &value);
     writeValueArray(mm, &chunk->constants, value);
+    popStack(mm);
     return chunk->constants.count - 1;
 }

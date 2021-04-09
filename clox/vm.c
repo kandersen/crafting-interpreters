@@ -32,8 +32,8 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate(VM* vm) {
-    ObjString* b = AS_STRING(pop(vm));
-    ObjString* a = AS_STRING(pop(vm));
+    ObjString* b = AS_STRING(peek(vm, 0));
+    ObjString* a = AS_STRING(peek(vm, 1));
 
     int length = a->length + b->length;
     char* chars = ALLOCATE(vm->mm, char, length + 1);
@@ -42,6 +42,8 @@ static void concatenate(VM* vm) {
     chars[length] = '\0';
 
     ObjString* result = takeString(vm->mm, &vm->strings, chars, length);
+    pop(vm);
+    pop(vm);
     push(vm, OBJ_VAL(result));
 }
 
@@ -401,30 +403,34 @@ static void defineNative(VM* vm, const char* name, int arity, NativeFn function)
     pop(vm);
 }
 
+void handleWeakVMReferences(void* data) {
+    VM* vm = (VM*)data;
+    tableRemoveUnmarked(&vm->strings);
+}
 
 void markVMRoots(void* data) {
     VM* vm = (VM*)data;
     // The Stack
     for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
-        markValue(*slot);
+        markValue(vm->mm, *slot);
     }
 
     // CallFrames
     for (int i = 0; i < vm->frameCount; i++) {
-        markObject((Obj*)vm->frames[i].closure);
+        markObject(vm->mm, (Obj*)vm->frames[i].closure);
     }
 
     // Open Upvalues
     for (ObjUpvalue* upvalue = vm->openUpvalues; upvalue != NULL; upvalue = upvalue->next) {
-        markObject((Obj*)upvalue);
+        markObject(vm->mm, (Obj*)upvalue);
     }
 
     // Global variables and associated data
     for (int i = 0; i < vm->globals.count; i++) {
-        markValue(vm->globals.values[i]);
-        markObject((Obj*)vm->globals.identifiers[i]);
+        markValue(vm->mm, vm->globals.values[i]);
+        markObject(vm->mm, (Obj*)vm->globals.identifiers[i]);
     }
-    markTable(&vm->globals.names);
+    markTable(vm->mm, &vm->globals.names);
 }
 
 void initVM(VM* vm) {
@@ -464,3 +470,15 @@ InterpretResult interpret(VM* vm, const char* source) {
 
     return run(vm);
 }
+
+//typedef void (*StackComponentPush)(void*, void*);
+//typedef void (*StackComponentPop)(void*);
+
+void pushStackVM(void* data, void* value) {
+    push((VM*)data, *((Value*)value));
+}
+
+void popStackVM(void* data) {
+    pop((VM*)data);
+}
+

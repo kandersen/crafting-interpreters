@@ -39,9 +39,13 @@ int main(int argc, const char* argv[]) {
     MemoryComponent vmComponent;
     vmComponent.data = &vm;
     vmComponent.markRoots = markVMRoots;
-    vmComponent.handleWeakReferences = nullMemoryComponentFn;
+    vmComponent.handleWeakReferences = handleWeakVMReferences;
     vmComponent.next = mm.memoryComponents;
     mm.memoryComponents = &vmComponent;
+
+    mm.dataStack = &vm;
+    mm.pushStack = pushStackVM;
+    mm.popStack = popStackVM;
 
     initNativeFunctionEnvironment(&vm);
 

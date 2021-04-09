@@ -130,10 +130,19 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
     }
 }
 
-void markTable(Table* table) {
+void markTable(MemoryManager* mm, Table* table) {
     for (int i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
-        markObject((Obj*)entry->key);
-        markValue(entry->value);
+        markObject(mm, (Obj*)entry->key);
+        markValue(mm, entry->value);
+    }
+}
+
+void tableRemoveUnmarked(Table* table) {
+    for (int i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        if (entry->key != NULL && !entry->key->obj.isMarked) {
+            tableDelete(table, entry->key);
+        }
     }
 }

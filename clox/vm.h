@@ -52,6 +52,9 @@ void freeVM(VM* vm);
 
 InterpretResult interpret(VM* vm, const char* source);
 
+void handleWeakVMReferences(void*);
 void markVMRoots(void*);
+void pushStackVM(void* data, void* value);
+void popStackVM(void* data);
 
 #endif //CLOX_VM_H

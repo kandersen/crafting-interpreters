@@ -55,8 +55,8 @@ void freeValueArray(MemoryManager* mm, ValueArray* array);
 bool valuesEqual(Value a, Value b);
 void printValue(FILE* out, Value value);
 
-void markObject(Obj* object);
-void markValue(Value value);
+void markObject(MemoryManager* mm, Obj* object);
+void markValue(MemoryManager* mm, Value value);
 
 
 #endif //CLOX_VALUE_H
