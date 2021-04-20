@@ -1,0 +1,7 @@
+fun function(a, b, c) {
+  print(c);
+  print(b);
+  print(a);
+}
+
+function(1, 2, 3);

@@ -63,14 +63,9 @@ static void runtimeError(VM* vm, const char* format, ...) {
         if (function->name == NULL) {
             fprintf(stderr, "script\n");
         } else {
-            fprintf(stderr, "%s()", function->name->chars);
+            fprintf(stderr, "%s()\n", function->name->chars);
         }
     }
-
-    CallFrame* frame = &vm->frames[vm->frameCount - 1];
-    size_t instruction = (size_t) (frame->ip - frame->closure->function->chunk.code - 1);
-    int line = frame->closure->function->chunk.lines[instruction];
-    fprintf(stderr, "[line %d] in script\n", line);
 
     resetStack(vm);
 }
@@ -114,6 +109,11 @@ static bool nativeCall(VM* vm, ObjNative* nativeObj, int argCount) {
 static bool callValue(VM* vm, Value callee, int argCount) {
     if (IS_OBJ(callee))  {
         switch (OBJ_TYPE(callee)) {
+            case OBJ_CLASS: {
+                ObjClass *klass = AS_CLASS(callee);
+                vm->stackTop[-argCount - 1] = OBJ_VAL(newInstance(vm->mm, klass));
+                return true;
+            }
             case OBJ_CLOSURE:
                 return call(vm, AS_CLOSURE(callee), argCount);
             case OBJ_NATIVE: {
@@ -370,6 +370,41 @@ static InterpretResult run(VM* vm) {
                 frame = &vm->frames[vm->frameCount - 1];
                 break;
             }
+            case OP_CLASS: {
+                push(vm, OBJ_VAL(newClass(vm->mm, READ_STRING())));
+                break;
+            }
+            case OP_GET_PROPERTY: {
+                if (!IS_INSTANCE(peek(vm, 0))) {
+                    runtimeError(vm, "Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance* instance = AS_INSTANCE(peek(vm, 0));
+                ObjString* name = READ_STRING();
+
+                Value value;
+                if (tableGet(&instance->fields, name, &value)) {
+                    pop(vm); // Instance.
+                    push(vm, value);
+                    break;
+                } else {
+                    runtimeError(vm, "Undefined property '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+            }
+            case OP_SET_PROPERTY: {
+                if (!IS_INSTANCE(peek(vm, 1))) {
+                    runtimeError(vm, "Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                ObjInstance* instance = AS_INSTANCE(peek(vm, 1));
+                tableSet(vm->mm, &instance->fields, READ_STRING(), peek(vm, 0));
+                Value value = pop(vm);
+                pop(vm);
+                push(vm, value);
+                break;
+            }
         }
     }
 #undef READ_BYTE
@@ -380,7 +415,7 @@ static InterpretResult run(VM* vm) {
 }
 
 void initGlobals(Globals* globals) {
-    initTable(&globals->names);
+    initTable(&globals->names);\
     globals->count = 0;
 }
 

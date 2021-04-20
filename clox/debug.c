@@ -120,6 +120,19 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             return simpleInstruction(out, "OP_CLOSE_UPVALUE", offset);
         case OP_RETURN:
             return simpleInstruction(out, "OP_RETURN", offset);
+        case OP_CLASS: {
+            uint8_t constant = chunk->code[offset + 1];
+            fprintf(out, "%-16s %4d '", "OP_CLASS", constant);
+            printValue(out, chunk->constants.values[constant]);
+            fprintf(out, "'\n");
+            return offset + 2;
+        }
+        case OP_SET_PROPERTY: {
+            return constantInstruction(out, "OP_SET_PROPERTY", chunk, offset);
+        }
+        case OP_GET_PROPERTY: {
+            return constantInstruction(out, "OP_GET_PROPERTY", chunk, offset);
+        }
         default:
             fprintf(out, "Unknown opcode %d\n", instruction);
             return offset + 1;

@@ -33,7 +33,10 @@ TEST_CASE("Print Tests","[vm]") {
                     "upvalue-disassembly",
                     "sibling-closure",
                     "loop-closure",
-                    "for-loop"
+                    "for-loop",
+                    "brioche",
+                    "call-with-args",
+                    "toast"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 

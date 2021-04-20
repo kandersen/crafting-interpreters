@@ -1,0 +1,4 @@
+class Toast {}
+var toast = Toast();
+print toast.jam = "grape"; // Prints "grape".
+print toast.jam;

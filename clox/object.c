@@ -32,6 +32,10 @@ static void printFunction(FILE* out, ObjFunction* function) {
 
 void printObject(FILE* out, Value value) {
     switch(OBJ_TYPE(value)) {
+        case OBJ_CLASS: {
+            fprintf(out, "%s", AS_CLASS(value)->name->chars);
+            break;
+        }
         case OBJ_FUNCTION:
             printFunction(out, AS_FUNCTION(value));
             break;
@@ -48,7 +52,16 @@ void printObject(FILE* out, Value value) {
         case OBJ_UPVALUE:
             fprintf(out, "upvalue");
             break;
+        case OBJ_INSTANCE:
+            fprintf(out, "%s instance", AS_INSTANCE(value)->klass->name->chars);
+            break;
     }
+}
+
+ObjClass* newClass(MemoryManager* mm, ObjString* name) {
+    ObjClass* klass = ALLOCATE_OBJ(mm, ObjClass, OBJ_CLASS);
+    klass->name = name;
+    return klass;
 }
 
 ObjClosure* newClosure(MemoryManager* mm, ObjFunction* function) {
@@ -79,6 +92,13 @@ ObjFunction* newFunction(MemoryManager* mm) {
     function->name = NULL;
     initChunk(&function->chunk);
     return function;
+}
+
+ObjInstance* newInstance(MemoryManager* mm, ObjClass* klass) {
+    ObjInstance* instance = ALLOCATE_OBJ(mm, ObjInstance, OBJ_INSTANCE);
+    instance->klass = klass;
+    initTable(&instance->fields);
+    return instance;
 }
 
 ObjNative* newNative(MemoryManager* mm, int arity, NativeFn function) {

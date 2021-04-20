@@ -8,6 +8,10 @@ extern "C" {
 #include "file.h"
 }
 
+void nullCollectorStackPush(void* stack, void* data) {
+    return;
+}
+
 TEST_CASE("Compilation Error","[compiler]") {
     const std::string compilationErrorTests[] = {
 
@@ -21,13 +25,14 @@ TEST_CASE("Compilation Error","[compiler]") {
 
 TEST_CASE("Disassembly Dump Tests","[compiler]") {
     const std::string disassemblyDumpTests[] = {
-            "empty",
-            "print",
-            "globalVar",
-            "blocks",
-            "upvalue-disassembly",
-            "simple-upvalue",
-            "upvalue-assignment"
+//            "empty",
+//            "print",
+//            "globalVar",
+//            "blocks",
+//            "upvalue-disassembly",
+//            "simple-upvalue",
+//            "upvalue-assignment",
+            "brioche"
     };
     const std::string disassemblyDumpTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/compiler/disassemblyDump/";
 
@@ -44,13 +49,15 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
 
             MemoryManager nullCollector;
             initMemoryManager(&nullCollector);
+            nullCollector.pushStack = nullCollectorStackPush;
+            nullCollector.popStack = nullMemoryComponentFn;
 
             ObjFunction* compilationResult = compile(&nullCollector, &strings, &globals, testSource);
             REQUIRE(compilationResult != NULL);
             FILE *tmp = tmpfile();
 
             fprintf(tmp, "===| ASSEMBLY |===\n");
-
+            disassembleChunk(tmp, &compilationResult->chunk, "<script>");
             fprintf(tmp, "\n===| INTERNED STRINGS |===\n");
             dumpInternedStrings(tmp, &strings);
             fprintf(tmp, "\n===| GLOBALS |===\n");

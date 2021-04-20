@@ -1,10 +1,10 @@
 #include <stdlib.h>
 
 #include "memory.h"
+#include "debug.h"
 
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
-#include "debug.h"
 #endif
 
 #define GC_HEAP_GROW_FACTOR 2
@@ -15,6 +15,10 @@ static void freeObject(MemoryManager* mm, Obj* object) {
     printf("%p free type %d\n", (void*)object, object->type);
 #endif
     switch (object->type) {
+        case OBJ_CLASS: {
+            FREE(mm, ObjClass, object);
+            break;
+        }
         case OBJ_FUNCTION: {
             ObjFunction* function = (ObjFunction*)object;
             freeChunk(mm, &function->chunk);
@@ -41,6 +45,12 @@ static void freeObject(MemoryManager* mm, Obj* object) {
             FREE(mm, ObjUpvalue, object);
             break;
         }
+        case OBJ_INSTANCE: {
+            ObjInstance* instance = (ObjInstance*)object;
+            freeTable(mm, &instance->fields);
+            FREE(mm, ObjInstance, object);
+            break;
+        }
     }
 }
 
@@ -57,6 +67,11 @@ static void blackenObject(MemoryManager* mm, Obj* object) {
     printf("\n");
 #endif
     switch (object->type) {
+        case OBJ_CLASS: {
+            ObjClass* klass = (ObjClass*)object;
+            markObject(mm, (Obj*)klass->name);
+            break;
+        }
         case OBJ_NATIVE:
         case OBJ_STRING:
             break;
@@ -77,6 +92,12 @@ static void blackenObject(MemoryManager* mm, Obj* object) {
             ObjFunction *function = (ObjFunction *) object;
             markObject(mm, (Obj*)function->name);
             markArray(mm, &function->chunk.constants);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance* instance = (ObjInstance*)object;
+            markObject(mm, (Obj*)instance->klass);
+            markTable(mm, &instance->fields);
             break;
         }
     }

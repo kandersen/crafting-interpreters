@@ -16,6 +16,8 @@ typedef struct {
     Entry* entries;
 } Table;
 
+//TODO(kjaa): initTable should take and store the allocator!
+//            that would save every subsequent op from having to be passed an allocator.
 void initTable(Table* table);
 void freeTable(MemoryManager* mm, Table* table);
 
