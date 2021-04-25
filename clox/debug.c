@@ -17,6 +17,16 @@ static int constantInstruction(FILE* out, const char* name, Chunk* chunk, int of
     return offset + 2;
 }
 
+static int invokeInstruction(FILE* out, const char* name, Chunk* chunk, int offset) {
+    uint8_t constant = chunk->code[offset + 1];
+    uint8_t argCount = chunk->code[offset + 2];
+    fprintf(out, "%-16s (%d args) %4d '", name, argCount, constant);
+    printValue(out, chunk->constants.values[constant]);
+    fprintf(out, "'\n");
+    return offset + 3;
+
+}
+
 static int byteInstruction(FILE* out, const char* name, Chunk* chunk, int offset) {
     uint8_t slot = chunk->code[offset + 1];
     fprintf(out, "%-16s %4d\n", name, slot);
@@ -101,6 +111,8 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             return jumpInstruction(out, "OP_LOOP", -1, chunk, offset);
         case OP_CALL:
             return byteInstruction(out, "OP_CALL", chunk, offset);
+        case OP_INVOKE:
+            return invokeInstruction(out, "OP_INVOKE", chunk, offset);
         case OP_CLOSURE: {
             offset++;
             uint8_t constant = chunk->code[offset++];

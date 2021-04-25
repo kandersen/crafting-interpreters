@@ -848,6 +848,10 @@ static void dot(Compiler* compiler, bool canAssign) {
     if (canAssign && match(compiler, TOKEN_EQUAL)) {
         expression(compiler);
         emitBytes(compiler, OP_SET_PROPERTY, name);
+    } else if (match(compiler, TOKEN_LEFT_PAREN)) {
+        uint8_t argCount = argumentList(compiler);
+        emitBytes(compiler, OP_INVOKE, name);
+        emitByte(compiler, argCount);
     } else {
         emitBytes(compiler, OP_GET_PROPERTY, name);
     }
