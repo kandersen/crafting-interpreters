@@ -48,6 +48,7 @@ int main(int argc, const char* argv[]) {
     mm.popStack = popStackVM;
 
     initNativeFunctionEnvironment(&vm);
+    internBuiltinStrings(&vm);
 
     if (argc == 1) {
         repl(&vm);

@@ -32,6 +32,10 @@ static void printFunction(FILE* out, ObjFunction* function) {
 
 void printObject(FILE* out, Value value) {
     switch(OBJ_TYPE(value)) {
+        case OBJ_BOUND_METHOD: {
+            printFunction(out, AS_BOUND_METHOD(value)->method->function);
+            break;
+        }
         case OBJ_CLASS: {
             fprintf(out, "%s", AS_CLASS(value)->name->chars);
             break;
@@ -58,9 +62,17 @@ void printObject(FILE* out, Value value) {
     }
 }
 
+ObjBoundMethod* newBoundMethod(MemoryManager* mm, Value receiver, ObjClosure* method) {
+    ObjBoundMethod* bound = ALLOCATE_OBJ(mm, ObjBoundMethod, OBJ_BOUND_METHOD);
+    bound->receiver = receiver;
+    bound->method = method;
+    return bound;
+}
+
 ObjClass* newClass(MemoryManager* mm, ObjString* name) {
     ObjClass* klass = ALLOCATE_OBJ(mm, ObjClass, OBJ_CLASS);
     klass->name = name;
+    initTable(&klass->methods);
     return klass;
 }
 

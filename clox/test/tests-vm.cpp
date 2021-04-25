@@ -36,7 +36,11 @@ TEST_CASE("Print Tests","[vm]") {
                     "for-loop",
                     "brioche",
                     "call-with-args",
-                    "toast"
+                    "toast",
+                    "brunch",
+                    "say-name",
+                    "scone",
+                    "coffeemaker"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 
@@ -66,6 +70,7 @@ TEST_CASE("Print Tests","[vm]") {
             mm.popStack = popStackVM;
 
             initNativeFunctionEnvironment(&vm);
+            internBuiltinStrings(&vm);
 
             vm.outPipe = tmp;
             vm.errPipe = stdout;

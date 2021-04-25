@@ -14,6 +14,8 @@
 
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_METHOD,
+    TYPE_INITIALIZER,
     TYPE_SCRIPT
 } FunctionType;
 
@@ -47,6 +49,11 @@ typedef struct CompilationContext {
     int scopeDepth;
 } CompilationContext;
 
+typedef struct ClassContext {
+    struct ClassContext* enclosing;
+    Token name;
+} ClassContext;
+
 typedef struct {
     // Parsing State
     Scanner* scanner;
@@ -56,7 +63,8 @@ typedef struct {
     bool panicMode;
 
     // Scope State
-    CompilationContext* context;
+    CompilationContext* compilationContext;
+    ClassContext* classContext;
 
     // Injected VM State
     MemoryManager* mm;
@@ -99,16 +107,21 @@ static void initCompilationContext(MemoryManager* mm, CompilationContext* contex
 
     Local* local = &context->locals[context->localCount++];
     local->depth = 0;
-    local->name.start = "";
-    local->name.length = 0;
     local->isCaptured = false;
+    if (type != TYPE_FUNCTION) {
+        local->name.start = "this";
+        local->name.length = 4;
+    } else {
+        local->name.start = "";
+        local->name.length = 0;
+    }
 }
 
 static void initCompiler(Compiler* compiler) {
     compiler->hadError = false;
     compiler->panicMode = false;
     compiler->scanner = NULL;
-    compiler->context = NULL;
+    compiler->compilationContext = NULL;
 }
 
 static void errorAt(Compiler* compiler, Token* token, const char* message) {
@@ -166,7 +179,7 @@ static void consume(Compiler* compiler, TokenType type, const char* message) {
 }
 
 static Chunk* currentChunk(Compiler* compiler) {
-    return &compiler->context->function->chunk;
+    return &compiler->compilationContext->function->chunk;
 }
 
 static void emitByte(Compiler* compiler, uint8_t byte) {
@@ -220,7 +233,12 @@ static void emitConstant(Compiler* compiler, Value value) {
 }
 
 static void emitReturn(Compiler* compiler) {
-    emitByte(compiler, OP_NIL);
+    if (compiler->compilationContext->type == TYPE_INITIALIZER) {
+        emitBytes(compiler, OP_GET_LOCAL, 0);
+    } else {
+        emitByte(compiler, OP_NIL);
+    }
+
     emitByte(compiler, OP_RETURN);
 }
 
@@ -263,20 +281,20 @@ static void printStatement(Compiler* compiler) {
 }
 
 static void beginScope(Compiler* compiler) {
-    compiler->context->scopeDepth++;
+    compiler->compilationContext->scopeDepth++;
 }
 
 static void endScope(Compiler* compiler) {
-    compiler->context->scopeDepth--;
+    compiler->compilationContext->scopeDepth--;
 
-    while (compiler->context->localCount > 0 && compiler->context->locals[compiler->context->localCount - 1].depth > compiler->context->scopeDepth) {
-        if (compiler->context->locals[compiler->context->localCount - 1].isCaptured) {
+    while (compiler->compilationContext->localCount > 0 && compiler->compilationContext->locals[compiler->compilationContext->localCount - 1].depth > compiler->compilationContext->scopeDepth) {
+        if (compiler->compilationContext->locals[compiler->compilationContext->localCount - 1].isCaptured) {
             emitByte(compiler, OP_CLOSE_UPVALUE);
         } else {
             //TODO(kjaa): add an OP_POPN, instead of many at a time.
             emitByte(compiler, OP_POP);
         }
-        compiler->context->localCount--;
+        compiler->compilationContext->localCount--;
     }
 }
 
@@ -314,6 +332,9 @@ static void returnStatement(Compiler* compiler) {
     if (match(compiler, TOKEN_SEMICOLON)) {
         emitReturn(compiler);
     } else {
+        if (compiler->compilationContext->type == TYPE_INITIALIZER) {
+            error(compiler, "Can't return a value from an initializer.");
+        }
         expression(compiler);
         consume(compiler, TOKEN_SEMICOLON, "Expect ';' after return value.");
         emitByte(compiler, OP_RETURN);
@@ -332,14 +353,14 @@ static bool identifiersEqual(Token* a, Token* b) {
 }
 
 static void addLocal(Compiler* compiler, Token name) {
-    if (compiler->context->localCount == UINT8_COUNT) {
+    if (compiler->compilationContext->localCount == UINT8_COUNT) {
         error(compiler, "Too many local variables in function.");
         return;
     }
 
-    Local* local = &compiler->context->locals[compiler->context->localCount++];
+    Local* local = &compiler->compilationContext->locals[compiler->compilationContext->localCount++];
     local->name = name;
-    local->depth = compiler->context->scopeDepth;
+    local->depth = compiler->compilationContext->scopeDepth;
     local->state = VAR_UNINITIALIZED;
     local->isCaptured = false;
 }
@@ -352,14 +373,14 @@ static bool isGlobalScope(CompilationContext* context) {
 static void declareVariable(Compiler* compiler) {
     Token* name = &compiler->previous;
 
-    if (isGlobalScope(compiler->context)) {
+    if (isGlobalScope(compiler->compilationContext)) {
         // Global Variable
         return;
     } else {
         // Local Variable
-        for (int i = compiler->context->localCount - 1; i >= 0; i--) {
-            Local *local = &compiler->context->locals[i];
-            if (local->depth != -1 && local->depth < compiler->context->scopeDepth) {
+        for (int i = compiler->compilationContext->localCount - 1; i >= 0; i--) {
+            Local *local = &compiler->compilationContext->locals[i];
+            if (local->depth != -1 && local->depth < compiler->compilationContext->scopeDepth) {
                 break;
             }
             if (identifiersEqual(name, &local->name)) {
@@ -381,11 +402,11 @@ static uint8_t parseVariable(Compiler* compiler, const char* errorMessage) {
     consume(compiler, TOKEN_IDENTIFIER, errorMessage);
 
     declareVariable(compiler);
-    if (isGlobalScope(compiler->context)) {
+    if (isGlobalScope(compiler->compilationContext)) {
         uint8_t constantForGlobalName = identifierConstant(compiler, &compiler->previous);
         uint8_t globalSlot = (uint8_t)compiler->globals->count++;
         compiler->globals->values[globalSlot] = UNDEFINED_VAL;
-        ObjString* name = AS_STRING(compiler->context->function->chunk.constants.values[constantForGlobalName]);
+        ObjString* name = AS_STRING(compiler->compilationContext->function->chunk.constants.values[constantForGlobalName]);
         compiler->globals->identifiers[globalSlot] = name;
 
         tableSet(compiler->mm, &compiler->globals->names, name, NUMBER_VAL((double)globalSlot));
@@ -402,11 +423,11 @@ static void markInitialized(CompilationContext* context, VarState varState) {
 }
 
 static void defineVariable(Compiler* compiler, uint8_t global, VarState varState) {
-    if (isGlobalScope(compiler->context)) {
+    if (isGlobalScope(compiler->compilationContext)) {
         compiler->globalStates[(int) global] = varState;
         emitBytes(compiler, OP_DEFINE_GLOBAL, global);
     } else {
-        markInitialized(compiler->context, varState);
+        markInitialized(compiler->compilationContext, varState);
     }
 }
 
@@ -437,7 +458,7 @@ static void forStatement(Compiler* compiler) {
     } else if (match(compiler, TOKEN_VAR)) {
         loopVariableName = compiler->current;
         varDeclaration(compiler, VAR_WRITEABLE);
-        loopVariable = compiler->context->localCount - 1;
+        loopVariable = compiler->compilationContext->localCount - 1;
     } else {
         expressionStatement(compiler);
     }
@@ -477,8 +498,8 @@ static void forStatement(Compiler* compiler) {
         beginScope(compiler);
         emitBytes(compiler, OP_GET_LOCAL, (uint8_t)loopVariable);
         addLocal(compiler, loopVariableName);
-        markInitialized(compiler->context, VAR_WRITEABLE);
-        innerVariable = compiler->context->localCount - 1;
+        markInitialized(compiler->compilationContext, VAR_WRITEABLE);
+        innerVariable = compiler->compilationContext->localCount - 1;
     }
 
     statement(compiler);
@@ -540,21 +561,21 @@ static void statement(Compiler* compiler) {
 
 static ObjFunction* endCompilation(Compiler* compiler) {
     emitReturn(compiler);
-    ObjFunction* function = compiler->context->function;
+    ObjFunction* function = compiler->compilationContext->function;
 #ifdef DEBUG_PRINT_CODE
     if (!compiler->hadError) {
         disassembleChunk(stdout, currentChunk(compiler), function->name != NULL ? function->name->chars : "<script>");
     }
 #endif
-    compiler->context = compiler->context->enclosing;
+    compiler->compilationContext = compiler->compilationContext->enclosing;
     return function;
 }
 
 static void function(Compiler* compiler, FunctionType type) {
     CompilationContext context;
     initCompilationContext(compiler->mm, &context, type);
-    context.enclosing = compiler->context;
-    compiler->context = &context;
+    context.enclosing = compiler->compilationContext;
+    compiler->compilationContext = &context;
     context.function->name = copyString(compiler->mm, compiler->internedStrings, compiler->previous.start, compiler->previous.length);
 
     beginScope(compiler);
@@ -588,21 +609,135 @@ static void function(Compiler* compiler, FunctionType type) {
 
 static void funDeclaration(Compiler* compiler) {
     uint8_t global = parseVariable(compiler, "Expect function name.");
-    markInitialized(compiler->context, VAR_READABLE);
+    markInitialized(compiler->compilationContext, VAR_READABLE);
     function(compiler, TYPE_FUNCTION);
     defineVariable(compiler, global, VAR_WRITEABLE);
 }
 
+static void method(Compiler* compiler) {
+    consume(compiler, TOKEN_IDENTIFIER, "Expect method name.");
+    uint8_t constant = identifierConstant(compiler, &compiler->previous);
+
+    FunctionType type = TYPE_METHOD;
+    if (compiler->previous.length == 4 && memcmp(compiler->previous.start, "init", 4) == 0) {
+        type = TYPE_INITIALIZER;
+    }
+    function(compiler, type);
+
+    emitBytes(compiler, OP_METHOD, constant);
+}
+
+
+static int resolveLocal(Compiler* compiler, CompilationContext* context, Token* name) {
+    for (int i = context->localCount - 1; i >= 0; i--) {
+        Local* local = &context->locals[i];
+        if (identifiersEqual(name, &local->name)) {
+            if (local->state == VAR_UNINITIALIZED) {
+                error(compiler, "Cant read local variable in its own initializer.");
+            }
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t index, bool isLocal, VarState varState) {
+    int upvalueCount = context->function->upvalueCount;
+
+    for (int i = 0; i < upvalueCount; i++) {
+        Upvalue* upvalue = &context->upvalues[i];
+        if (upvalue->index == index && upvalue->isLocal == isLocal) {
+            return i;
+        }
+    }
+
+    if (upvalueCount == UINT8_COUNT) {
+        error(compiler, "Too many closure variables in function.");
+        return 0;
+    }
+
+    context->upvalues[upvalueCount].isLocal = isLocal;
+    context->upvalues[upvalueCount].index = index;
+    context->upvalues[upvalueCount].state = varState;
+    return context->function->upvalueCount++;
+}
+
+static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token* name) {
+    if (context->enclosing == NULL) return -1;
+
+    int local = resolveLocal(compiler, context->enclosing, name);
+    if (local != -1) {
+        context->enclosing->locals[local].isCaptured = true;
+        VarState varState = context->enclosing->locals[local].state;
+        return addUpvalue(compiler, context, (uint8_t)local, true, varState);
+    }
+
+    int upvalue = resolveUpvalue(compiler, context->enclosing, name);
+    if (upvalue != -1) {
+        VarState varState = context->enclosing->upvalues[upvalue].state;
+        return addUpvalue(compiler, context, (uint8_t)upvalue, false, varState);
+    }
+
+    return -1;
+}
+
+static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
+    uint8_t getOp, setOp;
+    VarState varState;
+    int arg = resolveLocal(compiler, compiler->compilationContext, &name);
+    if (arg != -1) {
+        getOp = OP_GET_LOCAL;
+        setOp = OP_SET_LOCAL;
+        varState = compiler->compilationContext->locals[arg].state;
+    } else if ((arg = resolveUpvalue(compiler, compiler->compilationContext, &name)) != -1) {
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
+        varState = compiler->compilationContext->upvalues[arg].state;
+    } else {
+        ObjString* globalName = copyString(compiler->mm, compiler->internedStrings, name.start, name.length);
+        Value globalIndex;
+        //TODO(kjaa): Unreachable? Or unhandled - can this ever be false, or have we checked that elsewhere?
+        __unused bool foundGlobal = tableGet(&compiler->globals->names, globalName, &globalIndex);
+        arg = AS_NUMBER(globalIndex);
+        getOp = OP_GET_GLOBAL;
+        setOp = OP_SET_GLOBAL;
+        varState = compiler->globalStates[arg];
+    }
+
+    if (canAssign && match(compiler, TOKEN_EQUAL)) {
+        if (varState == VAR_READABLE) {
+            error(compiler, "Writing to const variable.");
+        }
+        expression(compiler);
+        emitBytes(compiler, setOp, (uint8_t) arg);
+    } else {
+        emitBytes(compiler, getOp, (uint8_t) arg);
+    }
+}
+
 static void classDeclaration(Compiler* compiler) {
     consume(compiler, TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = compiler->previous;
     uint8_t nameConstant = identifierConstant(compiler, &compiler->previous);
     declareVariable(compiler);
 
     emitBytes(compiler, OP_CLASS, nameConstant);
     defineVariable(compiler, nameConstant, VAR_WRITEABLE);
 
+    ClassContext classContext;
+    classContext.name = compiler->previous;
+    classContext.enclosing = compiler->classContext;
+    compiler->classContext = &classContext;
+
+    namedVariable(compiler, className, /*canAssign=*/ false);
     consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    while(!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+        method(compiler);
+    }
     consume(compiler, TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    emitByte(compiler, OP_POP);
+
+    compiler->classContext = compiler->classContext->enclosing;
 }
 
 static void declaration(Compiler* compiler) {
@@ -729,97 +864,17 @@ static void literal(Compiler* compiler, bool canAssign) {
 }
 
 
-static int resolveLocal(Compiler* compiler, CompilationContext* context, Token* name) {
-    for (int i = context->localCount - 1; i >= 0; i--) {
-        Local* local = &context->locals[i];
-        if (identifiersEqual(name, &local->name)) {
-            if (local->state == VAR_UNINITIALIZED) {
-                error(compiler, "Cant read local variable in its own initializer.");
-            }
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int addUpvalue(Compiler* compiler, CompilationContext* context, uint8_t index, bool isLocal, VarState varState) {
-    int upvalueCount = context->function->upvalueCount;
-
-    for (int i = 0; i < upvalueCount; i++) {
-        Upvalue* upvalue = &context->upvalues[i];
-        if (upvalue->index == index && upvalue->isLocal == isLocal) {
-            return i;
-        }
-    }
-
-    if (upvalueCount == UINT8_COUNT) {
-        error(compiler, "Too many closure variables in function.");
-        return 0;
-    }
-
-    context->upvalues[upvalueCount].isLocal = isLocal;
-    context->upvalues[upvalueCount].index = index;
-    context->upvalues[upvalueCount].state = varState;
-    return context->function->upvalueCount++;
-}
-
-static int resolveUpvalue(Compiler* compiler, CompilationContext* context, Token* name) {
-    if (context->enclosing == NULL) return -1;
-
-    int local = resolveLocal(compiler, context->enclosing, name);
-    if (local != -1) {
-        context->enclosing->locals[local].isCaptured = true;
-        VarState varState = context->enclosing->locals[local].state;
-        return addUpvalue(compiler, context, (uint8_t)local, true, varState);
-    }
-
-    int upvalue = resolveUpvalue(compiler, context->enclosing, name);
-    if (upvalue != -1) {
-        VarState varState = context->enclosing->upvalues[upvalue].state;
-        return addUpvalue(compiler, context, (uint8_t)upvalue, false, varState);
-    }
-
-    return -1;
-}
-
-static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
-    uint8_t getOp, setOp;
-    VarState varState;
-    int arg = resolveLocal(compiler, compiler->context, &name);
-    if (arg != -1) {
-        getOp = OP_GET_LOCAL;
-        setOp = OP_SET_LOCAL;
-        varState = compiler->context->locals[arg].state;
-    } else if ((arg = resolveUpvalue(compiler, compiler->context, &name)) != -1) {
-        getOp = OP_GET_UPVALUE;
-        setOp = OP_SET_UPVALUE;
-        varState = compiler->context->upvalues[arg].state;
-    } else {
-        ObjString* globalName = copyString(compiler->mm, compiler->internedStrings, name.start, name.length);
-        Value globalIndex;
-        //TODO(kjaa): Unreachable? Or unhandled - can this ever be false, or have we checked that elsewhere?
-        __unused bool foundGlobal = tableGet(&compiler->globals->names, globalName, &globalIndex);
-        arg = AS_NUMBER(globalIndex);
-        getOp = OP_GET_GLOBAL;
-        setOp = OP_SET_GLOBAL;
-        varState = compiler->globalStates[arg];
-    }
-
-    if (canAssign && match(compiler, TOKEN_EQUAL)) {
-        if (varState == VAR_READABLE) {
-            error(compiler, "Writing to const variable.");
-        }
-        expression(compiler);
-        emitBytes(compiler, setOp, (uint8_t) arg);
-    } else {
-        emitBytes(compiler, getOp, (uint8_t) arg);
-    }
-}
-
 static void variable(Compiler* compiler, bool canAssign) {
     namedVariable(compiler, compiler->previous, canAssign);
 }
 
+static void this_(Compiler* compiler, bool canAssign) {
+    if (compiler->classContext == NULL) {
+        error(compiler, "Can't use 'this' outside of a class.");
+        return;
+    }
+    variable(compiler, false);
+}
 
 static void and_(Compiler* compiler, __unused bool canAssign) {
     int endJump = emitJump(compiler, OP_JUMP_IF_FALSE);
@@ -888,7 +943,7 @@ ParseRule rules[] = {
         [TOKEN_PRINT]         = { NULL,     NULL,   PREC_NONE },
         [TOKEN_RETURN]        = { NULL,     NULL,   PREC_NONE },
         [TOKEN_SUPER]         = { NULL,     NULL,   PREC_NONE },
-        [TOKEN_THIS]          = { NULL,     NULL,   PREC_NONE },
+        [TOKEN_THIS]          = { this_,     NULL,   PREC_NONE },
         [TOKEN_TRUE]          = { literal,  NULL,   PREC_NONE },
         [TOKEN_VAR]           = { NULL,     NULL,   PREC_NONE },
         [TOKEN_CONST]         = { NULL,     NULL,   PREC_NONE },
@@ -907,7 +962,7 @@ static void expression(Compiler* compiler) {
 
 void markCompilerRoots(void* data) {
     Compiler* compiler = (Compiler*)data;
-    CompilationContext* context = compiler->context;
+    CompilationContext* context = compiler->compilationContext;
     while (context != NULL) {
         markObject(compiler->mm, (Obj*)context->function);
         context = context->enclosing;
@@ -933,7 +988,7 @@ ObjFunction* compile(MemoryManager* mm, Table* strings, Globals* globals, const 
 
     initCompiler(&compiler);
     compiler.scanner = &scanner;
-    compiler.context = &scriptContext;
+    compiler.compilationContext = &scriptContext;
     compiler.mm = mm;
     compiler.globals = globals;
     compiler.internedStrings = strings;

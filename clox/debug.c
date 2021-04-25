@@ -127,6 +127,9 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             fprintf(out, "'\n");
             return offset + 2;
         }
+        case OP_METHOD: {
+            return constantInstruction(out, "OP_METHOD", chunk, offset);
+        }
         case OP_SET_PROPERTY: {
             return constantInstruction(out, "OP_SET_PROPERTY", chunk, offset);
         }

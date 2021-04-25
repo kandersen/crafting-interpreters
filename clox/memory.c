@@ -15,7 +15,13 @@ static void freeObject(MemoryManager* mm, Obj* object) {
     printf("%p free type %d\n", (void*)object, object->type);
 #endif
     switch (object->type) {
+        case OBJ_BOUND_METHOD: {
+            FREE(mm, ObjBoundMethod, object);
+            break;
+        }
         case OBJ_CLASS: {
+            ObjClass* klass = (ObjClass*)object;
+            freeTable(mm, &klass->methods);
             FREE(mm, ObjClass, object);
             break;
         }
@@ -67,9 +73,16 @@ static void blackenObject(MemoryManager* mm, Obj* object) {
     printf("\n");
 #endif
     switch (object->type) {
+        case OBJ_BOUND_METHOD: {
+            ObjBoundMethod* bound = (ObjBoundMethod*)object;
+            markValue(mm, bound->receiver);
+            markObject(mm, (Obj*)bound->method);
+            break;
+        }
         case OBJ_CLASS: {
             ObjClass* klass = (ObjClass*)object;
             markObject(mm, (Obj*)klass->name);
+            markTable(mm, &klass->methods);
             break;
         }
         case OBJ_NATIVE:

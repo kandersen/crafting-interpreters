@@ -109,9 +109,21 @@ static bool nativeCall(VM* vm, ObjNative* nativeObj, int argCount) {
 static bool callValue(VM* vm, Value callee, int argCount) {
     if (IS_OBJ(callee))  {
         switch (OBJ_TYPE(callee)) {
+            case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                vm->stackTop[-argCount - 1] = bound->receiver;
+                return call(vm, bound->method, argCount);
+            }
             case OBJ_CLASS: {
                 ObjClass *klass = AS_CLASS(callee);
                 vm->stackTop[-argCount - 1] = OBJ_VAL(newInstance(vm->mm, klass));
+                Value initializer;
+                if (tableGet(&klass->methods, vm->initString, &initializer)) {
+                    return call(vm, AS_CLOSURE(initializer), argCount);
+                } else if (argCount != 0) {
+                    runtimeError(vm, "Expected 0 arguments but got %d.", argCount);
+                    return false;
+                }
                 return true;
             }
             case OBJ_CLOSURE:
@@ -162,6 +174,28 @@ static void closeUpvalues(VM* vm, Value* last) {
         vm->openUpvalues = upvalue->next;
     }
 }
+
+static void defineMethod(VM* vm, ObjString* name){
+    Value method = peek(vm, 0);
+    ObjClass* klass = AS_CLASS(peek(vm, 1));
+    tableSet(vm->mm, &klass->methods, name, method);
+    pop(vm);
+}
+
+static bool bindMethod(VM* vm, ObjClass* klass, ObjString* name) {
+    Value method;
+    if (!tableGet(&klass->methods, name, &method)) {
+        runtimeError(vm, "Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    ObjBoundMethod* bound = newBoundMethod(vm->mm, peek(vm, 0), AS_CLOSURE(method));
+    pop(vm);
+    push(vm, OBJ_VAL(bound));
+    return true;
+}
+
+
 
 static InterpretResult run(VM* vm) {
     CallFrame* frame = &vm->frames[vm->frameCount - 1];
@@ -374,6 +408,10 @@ static InterpretResult run(VM* vm) {
                 push(vm, OBJ_VAL(newClass(vm->mm, READ_STRING())));
                 break;
             }
+            case OP_METHOD: {
+                defineMethod(vm, READ_STRING());
+                break;
+            }
             case OP_GET_PROPERTY: {
                 if (!IS_INSTANCE(peek(vm, 0))) {
                     runtimeError(vm, "Only instances have properties.");
@@ -388,10 +426,12 @@ static InterpretResult run(VM* vm) {
                     pop(vm); // Instance.
                     push(vm, value);
                     break;
-                } else {
-                    runtimeError(vm, "Undefined property '%s'.", name->chars);
+                }
+
+                if (!bindMethod(vm, instance->klass, name)) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
+                break;
             }
             case OP_SET_PROPERTY: {
                 if (!IS_INSTANCE(peek(vm, 1))) {
@@ -466,6 +506,7 @@ void markVMRoots(void* data) {
         markObject(vm->mm, (Obj*)vm->globals.identifiers[i]);
     }
     markTable(vm->mm, &vm->globals.names);
+    markObject(vm->mm, (Obj*)vm->initString);
 }
 
 void initVM(VM* vm) {
@@ -476,11 +517,16 @@ void initVM(VM* vm) {
     vm->outPipe = stdout;
     vm->errPipe = stderr;
 
+    vm->initString = NULL;
     vm->mm = NULL;
 }
 
 void initNativeFunctionEnvironment(VM* vm) {
     defineNative(vm, "clock", 0, clockNative);
+}
+
+void internBuiltinStrings(VM* vm) {
+    vm->initString = copyString(vm->mm, &vm->strings, "init", 4);
 }
 
 void freeGlobals(MemoryManager* mm, Globals* globals) {

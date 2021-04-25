@@ -30,6 +30,8 @@ typedef struct {
     Table strings;
     Globals globals;
 
+    ObjString* initString;
+
     ObjUpvalue* openUpvalues;
 
     MemoryManager* mm;
@@ -48,6 +50,7 @@ void initGlobals(Globals* globals);
 void freeGlobals(MemoryManager* mm, Globals* globals);
 void initVM(VM* vm);
 void initNativeFunctionEnvironment(VM* vm);
+void internBuiltinStrings(VM* vm);
 void freeVM(VM* vm);
 
 InterpretResult interpret(VM* vm, const char* source);
