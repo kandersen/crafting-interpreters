@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="33a9ec67-7a4c-4a3a-a329-d0cd834fbe5f" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/a-method.lox" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/a-method.lox.out" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/doughnut.lox" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/doughnut.lox.out" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/no-sprinkles.lox" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/no-sprinkles.lox.out" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/super.lox" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clox/test/testData/vm/print/super.lox.out" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clox/chunk.h" beforeDir="false" afterPath="$PROJECT_DIR$/clox/chunk.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clox/compiler.c" beforeDir="false" afterPath="$PROJECT_DIR$/clox/compiler.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clox/debug.c" beforeDir="false" afterPath="$PROJECT_DIR$/clox/debug.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clox/test/tests-vm.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/clox/test/tests-vm.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clox/vm.c" beforeDir="false" afterPath="$PROJECT_DIR$/clox/vm.c" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1rlXqT0XsSd9yKSIO1Tjy0eWO9P" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="33a9ec67-7a4c-4a3a-a329-d0cd834fbe5f" name="Default Changelist" comment="" />
+      <created>1619551844623</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1619551844623</updated>
+    </task>
+    <servers />
+  </component>
+</project>

@@ -1,0 +1,91 @@
+fun andb(a, b) {
+  var res = 0;
+  for (var x = 0; x < 32; x++) {
+    res += res;
+    if (a < 0 && b < 0) {
+      res += 1;
+    }
+    a += a;
+    b += b;
+  }
+  return res;
+
+}
+
+fun orb(a, b) {
+  var res = 0;
+  for (var x = 0; x < 32; x++) {
+    res += res;
+    if (a < 0 || b < 0) {
+      res = res + 1;
+    }
+    a += a;
+    b += b;
+  }
+  return res;
+}
+
+fun xorb(a, b) {
+  var res = 0;
+  for (x = 0; x < 32; x++) {
+    res += res;
+    if (a < 0) {
+      if (b >= 0) {
+        res += 1;
+      }
+    } else if (b < 0) {
+      res += 1;
+    }
+    a += a;
+    b += b;
+  }
+  return res;
+}
+
+fun trueb(a) {
+  return a != 0;
+}
+
+fun negb(a) {
+  return xorb(a,  2147483647);// 0x7FFFFFFF = 0b11111.....1111, 32 ones
+}
+
+fun shiftl1(a) {
+  return a + a;
+}
+
+fun shift1l(a, b) {
+  var x = 0;
+  var res = 1;
+  while (x < b) {
+    res = res + res;
+  }
+  return res;
+}
+
+fun div2(n) {
+  return n / 2; // TODO
+}
+
+fun shiftr1(a) {
+  return div2(a);
+}
+
+var COUNT = 0;
+fun backtrack(size, mask, y, left, down, right) {
+  if (y == size) {
+    COUNT = COUNT + 1;
+  } else {
+    bitmap = andb(mask, negb(orb(left, orb(down, right))));
+    while (trueb(bitmap)) {
+      bit = andb(-bitmap, bitmap);
+      bitmap = xorb(bitmap, bit);
+      backtrack(size, mask, y + 1, shiftl1(orb(left, bit)), orb(down, bit), shiftr1(orb(right, bit)));
+    }
+  }
+}
+
+var size = 4;
+var mask = shiftl(1, size) - 1;
+backtrack(size, mask, 0, 0, 0, 0);
+print(count);

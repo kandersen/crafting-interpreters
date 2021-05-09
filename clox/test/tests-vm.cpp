@@ -40,7 +40,10 @@ TEST_CASE("Print Tests","[vm]") {
                     "brunch",
                     "say-name",
                     "scone",
-                    "coffeemaker"
+                    "coffeemaker",
+                    "doughnut",
+                    "a-method",
+                    "super"
             };
     const std::string printTestDir = "/Users/kja/repos/crafting-interpreters/clox/test/testData/vm/print/";
 

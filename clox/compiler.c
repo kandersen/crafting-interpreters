@@ -52,6 +52,7 @@ typedef struct CompilationContext {
 typedef struct ClassContext {
     struct ClassContext* enclosing;
     Token name;
+    bool hasSuperclass;
 } ClassContext;
 
 typedef struct {
@@ -111,9 +112,11 @@ static void initCompilationContext(MemoryManager* mm, CompilationContext* contex
     if (type != TYPE_FUNCTION) {
         local->name.start = "this";
         local->name.length = 4;
+        local->state = VAR_READABLE;
     } else {
         local->name.start = "";
         local->name.length = 0;
+        local->state = VAR_UNINITIALIZED;
     }
 }
 
@@ -397,24 +400,30 @@ static uint8_t identifierConstant(Compiler* compiler, Token* name) {
     return makeConstant(compiler, OBJ_VAL(identifier));
 }
 
+static uint8_t computeGlobalSlot(Compiler *compiler, uint8_t constantForGlobalName);
+
 /// @returns `0`, if the variable is Local
 static uint8_t parseVariable(Compiler* compiler, const char* errorMessage) {
     consume(compiler, TOKEN_IDENTIFIER, errorMessage);
-
     declareVariable(compiler);
+
     if (isGlobalScope(compiler->compilationContext)) {
         uint8_t constantForGlobalName = identifierConstant(compiler, &compiler->previous);
-        uint8_t globalSlot = (uint8_t)compiler->globals->count++;
-        compiler->globals->values[globalSlot] = UNDEFINED_VAL;
-        ObjString* name = AS_STRING(compiler->compilationContext->function->chunk.constants.values[constantForGlobalName]);
-        compiler->globals->identifiers[globalSlot] = name;
-
-        tableSet(compiler->mm, &compiler->globals->names, name, NUMBER_VAL((double)globalSlot));
-        compiler->globalStates[globalSlot] = VAR_READABLE;
-        return globalSlot;
+        return computeGlobalSlot(compiler, constantForGlobalName);
     } else {
         return 0;
     }
+}
+
+static uint8_t computeGlobalSlot(Compiler *compiler, uint8_t constantForGlobalName) {
+    uint8_t globalSlot = (uint8_t)compiler->globals->count++;
+    compiler->globals->values[globalSlot] = UNDEFINED_VAL;
+    ObjString* name = AS_STRING(compiler->compilationContext->function->chunk.constants.values[constantForGlobalName]);
+    compiler->globals->identifiers[globalSlot] = name;
+
+    tableSet(compiler->mm, &compiler->globals->names, name, NUMBER_VAL((double)globalSlot));
+    compiler->globalStates[globalSlot] = VAR_READABLE;
+    return globalSlot;
 }
 
 static void markInitialized(CompilationContext* context, VarState varState) {
@@ -697,7 +706,10 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
         ObjString* globalName = copyString(compiler->mm, compiler->internedStrings, name.start, name.length);
         Value globalIndex;
         //TODO(kjaa): Unreachable? Or unhandled - can this ever be false, or have we checked that elsewhere?
-        __unused bool foundGlobal = tableGet(&compiler->globals->names, globalName, &globalIndex);
+        if (!tableGet(&compiler->globals->names, globalName, &globalIndex)) {
+            error(compiler, "Unbound global variable: shouldn't occur");
+            return;
+        }
         arg = AS_NUMBER(globalIndex);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
@@ -715,30 +727,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     }
 }
 
-static void classDeclaration(Compiler* compiler) {
-    consume(compiler, TOKEN_IDENTIFIER, "Expect class name.");
-    Token className = compiler->previous;
-    uint8_t nameConstant = identifierConstant(compiler, &compiler->previous);
-    declareVariable(compiler);
-
-    emitBytes(compiler, OP_CLASS, nameConstant);
-    defineVariable(compiler, nameConstant, VAR_WRITEABLE);
-
-    ClassContext classContext;
-    classContext.name = compiler->previous;
-    classContext.enclosing = compiler->classContext;
-    compiler->classContext = &classContext;
-
-    namedVariable(compiler, className, /*canAssign=*/ false);
-    consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before class body.");
-    while(!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
-        method(compiler);
-    }
-    consume(compiler, TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
-    emitByte(compiler, OP_POP);
-
-    compiler->classContext = compiler->classContext->enclosing;
-}
+static void classDeclaration(Compiler* compiler);
 
 static void declaration(Compiler* compiler) {
     if (match(compiler, TOKEN_CLASS)) {
@@ -872,6 +861,87 @@ static void variable(Compiler* compiler, bool canAssign) {
     namedVariable(compiler, compiler->previous, canAssign);
 }
 
+static Token syntheticToken(const char* text) {
+    Token token;
+    token.start = text;
+    token.length = (int)strlen(text);
+    return token;
+}
+
+static void classDeclaration(Compiler* compiler) {
+    consume(compiler, TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = compiler->previous;
+    uint8_t nameConstant = identifierConstant(compiler, &compiler->previous);
+    declareVariable(compiler);
+    uint8_t globalSlot = computeGlobalSlot(compiler, nameConstant);
+
+    emitBytes(compiler, OP_CLASS, nameConstant);
+    defineVariable(compiler, globalSlot, VAR_WRITEABLE);
+
+    ClassContext classContext;
+    classContext.name = compiler->previous;
+    classContext.enclosing = compiler->classContext;
+    classContext.hasSuperclass = false;
+    compiler->classContext = &classContext;
+
+    if (match(compiler, TOKEN_LESS)) {
+        consume(compiler, TOKEN_IDENTIFIER, "Expect superclass name.");
+        variable(compiler, /*canAssign=*/ false);
+
+        if (identifiersEqual(&className, &compiler->previous)) {
+            error(compiler, "A class can't inherit from itself.");
+        }
+
+        compiler->classContext->hasSuperclass = true;
+
+        beginScope(compiler);
+        addLocal(compiler, syntheticToken("super"));
+        compiler->compilationContext->locals[0].state = VAR_WRITEABLE;
+        defineVariable(compiler, 0, VAR_READABLE);
+
+        namedVariable(compiler, className, false);
+        emitByte(compiler, OP_INHERIT);
+    }
+
+
+    namedVariable(compiler, className, /*canAssign=*/ false);
+    consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    while(!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+        method(compiler);
+    }
+    consume(compiler, TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    emitByte(compiler, OP_POP);
+
+    if (compiler->classContext->hasSuperclass) {
+        endScope(compiler);
+    }
+
+    compiler->classContext = compiler->classContext->enclosing;
+}
+
+static void super_(Compiler* compiler, bool canAssign) {
+    if (compiler->classContext == NULL) {
+        error(compiler, "Can't use 'super' outside of a class.");
+    } else if (!compiler->classContext->hasSuperclass) {
+        error(compiler, "Can't use 'super' in a class with no superclass.");
+    }
+
+    consume(compiler, TOKEN_DOT, "Expect '.' after 'super'.");
+    consume(compiler, TOKEN_IDENTIFIER, "Expect superclass method name.");
+    uint8_t name = identifierConstant(compiler, &compiler->previous);
+
+    namedVariable(compiler, syntheticToken("this"), false);
+    if (match(compiler, TOKEN_LEFT_PAREN)) {
+        uint8_t argCount = argumentList(compiler);
+        namedVariable(compiler, syntheticToken("super"), false);
+        emitBytes(compiler, OP_SUPER_INVOKE, name);
+        emitByte(compiler, argCount);
+    } else {
+        namedVariable(compiler, syntheticToken("super"), false);
+        emitBytes(compiler, OP_GET_SUPER, name);
+    }
+}
+
 static void this_(Compiler* compiler, bool canAssign) {
     if (compiler->classContext == NULL) {
         error(compiler, "Can't use 'this' outside of a class.");
@@ -946,7 +1016,7 @@ ParseRule rules[] = {
         [TOKEN_OR]            = { NULL,     or_,   PREC_OR },
         [TOKEN_PRINT]         = { NULL,     NULL,   PREC_NONE },
         [TOKEN_RETURN]        = { NULL,     NULL,   PREC_NONE },
-        [TOKEN_SUPER]         = { NULL,     NULL,   PREC_NONE },
+        [TOKEN_SUPER]         = { super_,     NULL,   PREC_NONE },
         [TOKEN_THIS]          = { this_,     NULL,   PREC_NONE },
         [TOKEN_TRUE]          = { literal,  NULL,   PREC_NONE },
         [TOKEN_VAR]           = { NULL,     NULL,   PREC_NONE },

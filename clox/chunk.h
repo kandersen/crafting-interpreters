@@ -36,6 +36,9 @@ typedef enum {
     OP_CLOSURE,
     OP_CLASS,
     OP_METHOD,
+    OP_INHERIT,
+    OP_GET_SUPER,
+    OP_SUPER_INVOKE,
     OP_GET_PROPERTY,
     OP_SET_PROPERTY
 } OpCode;

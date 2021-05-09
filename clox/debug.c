@@ -139,6 +139,9 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
             fprintf(out, "'\n");
             return offset + 2;
         }
+        case OP_INHERIT: {
+            return simpleInstruction(out, "OP_INHERIT", offset);
+        }
         case OP_METHOD: {
             return constantInstruction(out, "OP_METHOD", chunk, offset);
         }
@@ -147,6 +150,12 @@ int disassembleInstruction(FILE* out, Chunk* chunk, int offset ){
         }
         case OP_GET_PROPERTY: {
             return constantInstruction(out, "OP_GET_PROPERTY", chunk, offset);
+        }
+        case OP_GET_SUPER: {
+            return constantInstruction(out, "OP_GET_SUPER", chunk, offset);
+        }
+        case OP_SUPER_INVOKE: {
+            return invokeInstruction(out, "OP_SUPER_INVOKE", chunk, offset);
         }
         default:
             fprintf(out, "Unknown opcode %d\n", instruction);
