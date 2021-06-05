@@ -618,9 +618,6 @@ InterpretResult interpret(VM* vm, const char* source) {
     return run(vm);
 }
 
-//typedef void (*StackComponentPush)(void*, void*);
-//typedef void (*StackComponentPop)(void*);
-
 void pushStackVM(void* data, void* value) {
     push((VM*)data, *((Value*)value));
 }

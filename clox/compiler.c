@@ -417,7 +417,7 @@ static uint8_t parseVariable(Compiler* compiler, const char* errorMessage) {
 
 static uint8_t computeGlobalSlot(Compiler *compiler, uint8_t constantForGlobalName) {
     uint8_t globalSlot = (uint8_t)compiler->globals->count++;
-//    compiler->globals->values[globalSlot] = UNDEFINED_VAL;
+    compiler->globals->values[globalSlot] = NIL_VAL;
     ObjString* name = AS_STRING(compiler->compilationContext->function->chunk.constants.values[constantForGlobalName]);
     compiler->globals->identifiers[globalSlot] = name;
 
