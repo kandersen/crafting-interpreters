@@ -28,6 +28,9 @@ void freeValueArray(MemoryManager* mm, ValueArray* array) {
 }
 
 bool valuesEqual(Value a, Value b) {
+#ifdef NAN_BOXING
+    return a == b;
+#else
     if (a.type != b.type) return false;
     switch (a.type) {
         case VAL_NIL:       return true;
@@ -38,9 +41,21 @@ bool valuesEqual(Value a, Value b) {
             //TODO(kjaa): decide what UNDEF == UNDEF is.
             return false;
     }
+#endif
 }
 
 void printValue(FILE* out, Value value) {
+#ifdef NAN_BOXING
+    if (IS_BOOL(value)) {
+        fprintf(out, AS_BOOL(value) ? "true" : "false");
+    } else if (IS_NIL(value)) {
+        fprintf(out, "nil");
+    } else if (IS_NUMBER(value)) {
+        fprintf(out, "%g", AS_NUMBER(value));
+    } else if (IS_OBJ(value)) {
+        printObject(out, value);
+    }
+#else
     switch(value.type) {
         case VAL_NUMBER: fprintf(out, "%g", AS_NUMBER(value)); break;
         case VAL_BOOL: fprintf(out, AS_BOOL(value) ? "true" : "false"); break;
@@ -48,6 +63,7 @@ void printValue(FILE* out, Value value) {
         case VAL_OBJ: printObject(out, value); break;
         case VAL_UNDEFINED: fprintf(out, "<undefined>"); break;
     }
+#endif
 }
 
 

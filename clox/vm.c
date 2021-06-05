@@ -289,10 +289,10 @@ static InterpretResult run(VM* vm) {
             }
             case OP_GET_GLOBAL: {
                 Value value = vm->globals.values[READ_BYTE()];
-                if (IS_UNDEFINED(value)) {
-                    runtimeError(vm, "Undefined variable.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+//                if (IS_UNDEFINED(value)) {
+//                    runtimeError(vm, "Undefined variable.");
+//                    return INTERPRET_RUNTIME_ERROR;
+//                }
                 push(vm, value);
                 break;
             }
@@ -302,10 +302,10 @@ static InterpretResult run(VM* vm) {
             }
             case OP_SET_GLOBAL: {
                 uint8_t index = READ_BYTE();
-                if (IS_UNDEFINED(vm->globals.values[index])) {
-                    runtimeError(vm, "Undefined variable.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+//                if (IS_UNDEFINED(vm->globals.values[index])) {
+//                    runtimeError(vm, "Undefined variable.");
+//                    return INTERPRET_RUNTIME_ERROR;
+//                }
                 vm->globals.values[index] = peek(vm, 0);
                 break;
             }
