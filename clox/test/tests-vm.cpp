@@ -58,8 +58,7 @@ TEST_CASE("Print Tests","[vm]") {
             initMemoryManager(&mm);
 
             VM vm;
-            initVM(&vm);
-            vm.mm = &mm;
+            initVM(&vm, &mm);
 
             MemoryComponent vmComponent;
             vmComponent.data = &vm;

@@ -46,9 +46,9 @@ typedef enum {
     INTERPRET_RUNTIME_ERROR
 } InterpretResult;
 
-void initGlobals(Globals* globals);
-void freeGlobals(MemoryManager* mm, Globals* globals);
-void initVM(VM* vm);
+void initGlobals(Globals* globals, MemoryManager* mm);
+void freeGlobals(Globals* globals);
+void initVM(VM* vm, MemoryManager* mm);
 void initNativeFunctionEnvironment(VM* vm);
 void internBuiltinStrings(VM* vm);
 void freeVM(VM* vm);

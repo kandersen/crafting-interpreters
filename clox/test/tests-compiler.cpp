@@ -41,17 +41,17 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             const std::string sourcePath = disassemblyDumpTestDir + testName + ".lox";
             const std::string expectationsPath = sourcePath + ".assembly";
 
-            char *testSource = readFile(sourcePath.c_str());
-            Table strings;
-            initTable(&strings);
-            Globals globals;
-            initGlobals(&globals);
-
             MemoryManager nullCollector;
             initMemoryManager(&nullCollector);
             nullCollector.pushStack = nullCollectorStackPush;
             nullCollector.popStack = nullMemoryComponentFn;
 
+            Table strings;
+            initTable(&strings, &nullCollector);
+            Globals globals;
+            initGlobals(&globals, &nullCollector);
+
+            char *testSource = readFile(sourcePath.c_str());
             ObjFunction* compilationResult = compile(&nullCollector, &strings, &globals, testSource);
             REQUIRE(compilationResult != NULL);
             FILE *tmp = tmpfile();
@@ -70,9 +70,9 @@ TEST_CASE("Disassembly Dump Tests","[compiler]") {
             free(expected);
             free(actual);
             fclose(tmp);
-            freeGlobals(&nullCollector, &globals);
-            freeMemoryManager(&nullCollector);
+            freeGlobals(&globals);
             free(testSource);
+            freeMemoryManager(&nullCollector);
         }
     }
 }

@@ -21,7 +21,7 @@ static void freeObject(MemoryManager* mm, Obj* object) {
         }
         case OBJ_CLASS: {
             ObjClass* klass = (ObjClass*)object;
-            freeTable(mm, &klass->methods);
+            freeTable(&klass->methods);
             FREE(mm, ObjClass, object);
             break;
         }
@@ -53,7 +53,7 @@ static void freeObject(MemoryManager* mm, Obj* object) {
         }
         case OBJ_INSTANCE: {
             ObjInstance* instance = (ObjInstance*)object;
-            freeTable(mm, &instance->fields);
+            freeTable(&instance->fields);
             FREE(mm, ObjInstance, object);
             break;
         }
@@ -82,7 +82,7 @@ static void blackenObject(MemoryManager* mm, Obj* object) {
         case OBJ_CLASS: {
             ObjClass* klass = (ObjClass*)object;
             markObject(mm, (Obj*)klass->name);
-            markTable(mm, &klass->methods);
+            markTable(&klass->methods);
             break;
         }
         case OBJ_NATIVE:
@@ -110,7 +110,7 @@ static void blackenObject(MemoryManager* mm, Obj* object) {
         case OBJ_INSTANCE: {
             ObjInstance* instance = (ObjInstance*)object;
             markObject(mm, (Obj*)instance->klass);
-            markTable(mm, &instance->fields);
+            markTable(&instance->fields);
             break;
         }
     }

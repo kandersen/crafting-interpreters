@@ -421,7 +421,7 @@ static uint8_t computeGlobalSlot(Compiler *compiler, uint8_t constantForGlobalNa
     ObjString* name = AS_STRING(compiler->compilationContext->function->chunk.constants.values[constantForGlobalName]);
     compiler->globals->identifiers[globalSlot] = name;
 
-    tableSet(compiler->mm, &compiler->globals->names, name, NUMBER_VAL((double)globalSlot));
+    tableSet(&compiler->globals->names, name, NUMBER_VAL((double)globalSlot));
     compiler->globalStates[globalSlot] = VAR_READABLE;
     return globalSlot;
 }

@@ -206,7 +206,7 @@ static void closeUpvalues(VM* vm, Value* last) {
 static void defineMethod(VM* vm, ObjString* name){
     Value method = peek(vm, 0);
     ObjClass* klass = AS_CLASS(peek(vm, 1));
-    tableSet(vm->mm, &klass->methods, name, method);
+    tableSet(&klass->methods, name, method);
     pop(vm);
 }
 
@@ -452,7 +452,7 @@ static InterpretResult run(VM* vm) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 ObjClass *subclass = AS_CLASS(peek(vm, 0));
-                tableAddAll(vm->mm, &AS_CLASS(superclass)->methods, &subclass->methods);
+                tableAddAll(&AS_CLASS(superclass)->methods, &subclass->methods);
                 pop(vm);
                 break;
             }
@@ -505,7 +505,7 @@ static InterpretResult run(VM* vm) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 ObjInstance* instance = AS_INSTANCE(peek(vm, 1));
-                tableSet(vm->mm, &instance->fields, READ_STRING(), peek(vm, 0));
+                tableSet(&instance->fields, READ_STRING(), peek(vm, 0));
                 Value value = pop(vm);
                 pop(vm);
                 push(vm, value);
@@ -520,8 +520,8 @@ static InterpretResult run(VM* vm) {
 #undef BINARY_OP
 }
 
-void initGlobals(Globals* globals) {
-    initTable(&globals->names);
+void initGlobals(Globals* globals, MemoryManager* mm) {
+    initTable(&globals->names, mm);
     globals->count = 0;
 }
 
@@ -538,7 +538,7 @@ static void defineNative(VM* vm, const char* name, int arity, NativeFn function)
     uint8_t newIndex = (uint8_t)vm->globals.count++;
     vm->globals.values[newIndex] = vm->stack[1];
     vm->globals.identifiers[newIndex] = identifier;
-    tableSet(vm->mm, &vm->globals.names, AS_STRING(vm->stack[0]), NUMBER_VAL((double)newIndex));
+    tableSet(&vm->globals.names, AS_STRING(vm->stack[0]), NUMBER_VAL((double)newIndex));
 
     pop(vm);
     pop(vm);
@@ -571,20 +571,20 @@ void markVMRoots(void* data) {
         markValue(vm->mm, vm->globals.values[i]);
         markObject(vm->mm, (Obj*)vm->globals.identifiers[i]);
     }
-    markTable(vm->mm, &vm->globals.names);
+    markTable(&vm->globals.names);
     markObject(vm->mm, (Obj*)vm->initString);
 }
 
-void initVM(VM* vm) {
+void initVM(VM* vm, MemoryManager* mm) {
     resetStack(vm);
-    initTable(&vm->strings);
-    initGlobals(&vm->globals);
+    initTable(&vm->strings, mm);
+    initGlobals(&vm->globals, mm);
 
     vm->outPipe = stdout;
     vm->errPipe = stderr;
 
     vm->initString = NULL;
-    vm->mm = NULL;
+    vm->mm = mm;
 }
 
 void initNativeFunctionEnvironment(VM* vm) {
@@ -595,14 +595,14 @@ void internBuiltinStrings(VM* vm) {
     vm->initString = copyString(vm->mm, &vm->strings, "init", 4);
 }
 
-void freeGlobals(MemoryManager* mm, Globals* globals) {
-    freeTable(mm, &globals->names);
+void freeGlobals(Globals* globals) {
+    freeTable(&globals->names);
 }
 
 void freeVM(VM* vm) {
-    freeTable(vm->mm, &vm->strings);
-    freeGlobals(vm->mm, &vm->globals);
-    initVM(vm);
+    freeTable(&vm->strings);
+    freeGlobals(&vm->globals);
+    initVM(vm, NULL);
 }
 
 InterpretResult interpret(VM* vm, const char* source) {

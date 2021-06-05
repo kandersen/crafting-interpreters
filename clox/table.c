@@ -63,21 +63,22 @@ static void adjustCapacity(MemoryManager* mm, Table* table, int capacity) {
     table->capacity = capacity;
 }
 
-void initTable(Table* table) {
+void initTable(Table* table, MemoryManager* mm) {
     table->count = 0;
     table->capacity = 0;
     table->entries = NULL;
+    table->memoryManager = mm;
 }
 
-void freeTable(MemoryManager* mm, Table* table) {
-    FREE_ARRAY(mm, Entry, table->entries, table->capacity);
-    initTable(table);
+void freeTable(Table* table) {
+    FREE_ARRAY(table->memoryManager, Entry, table->entries, table->capacity);
+    initTable(table, NULL);
 }
 
-bool tableSet(MemoryManager* mm, Table* table, ObjString* key, Value value) {
+bool tableSet(Table* table, ObjString* key, Value value) {
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
         int capacity = GROW_CAPACITY(table->capacity);
-        adjustCapacity(mm, table, capacity);
+        adjustCapacity(table->memoryManager, table, capacity);
     }
     Entry* entry = findEntry(table->entries, table->capacity, key);
 
@@ -101,11 +102,11 @@ bool tableDelete(Table* table, ObjString* key) {
     return true;
 }
 
-void tableAddAll(MemoryManager* mm, Table* from, Table* to) {
+void tableAddAll(Table* from, Table* to) {
     for (int i = 0; i < from->capacity; i++) {
         Entry* entry = &from->entries[i];
         if (entry->key != NULL) {
-            tableSet(mm, to, entry->key, entry->value);
+            tableSet(to, entry->key, entry->value);
         }
     }
 }
@@ -131,11 +132,11 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
     }
 }
 
-void markTable(MemoryManager* mm, Table* table) {
+void markTable(Table* table) {
     for (int i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
-        markObject(mm, (Obj*)entry->key);
-        markValue(mm, entry->value);
+        markObject(table->memoryManager, (Obj*)entry->key);
+        markValue(table->memoryManager, entry->value);
     }
 }
 

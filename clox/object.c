@@ -72,7 +72,7 @@ ObjBoundMethod* newBoundMethod(MemoryManager* mm, Value receiver, ObjClosure* me
 ObjClass* newClass(MemoryManager* mm, ObjString* name) {
     ObjClass* klass = ALLOCATE_OBJ(mm, ObjClass, OBJ_CLASS);
     klass->name = name;
-    initTable(&klass->methods);
+    initTable(&klass->methods, mm);
     return klass;
 }
 
@@ -109,7 +109,7 @@ ObjFunction* newFunction(MemoryManager* mm) {
 ObjInstance* newInstance(MemoryManager* mm, ObjClass* klass) {
     ObjInstance* instance = ALLOCATE_OBJ(mm, ObjInstance, OBJ_INSTANCE);
     instance->klass = klass;
-    initTable(&instance->fields);
+    initTable(&instance->fields, mm);
     return instance;
 }
 
@@ -128,7 +128,7 @@ static ObjString* allocateString(MemoryManager* mm, Table* strings, char* chars,
 
     Value stringForStack = OBJ_VAL(string);
     pushStack(mm, &stringForStack);
-    tableSet(mm, strings, string, NIL_VAL);
+    tableSet(strings, string, NIL_VAL);
     popStack(mm);
 
     return string;
